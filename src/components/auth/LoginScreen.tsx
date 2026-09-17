@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react'
 import type { AuthUser, UserRole } from '@/types'
 import { BRAND_COLORS } from '@/types'
-import { MOCK_USERS } from '@/data/mockData'
 import RoleCards from '@/components/auth/RoleCards'
+import LoginForm from '@/components/auth/LoginForm'
+import VeciLomasLogo from '@/components/common/VeciLomasLogo'
 import loginImg0 from '@/imports/image.png'
 import loginImg1 from '@/imports/image-1.png'
 import loginImg2 from '@/imports/image-2.png'
@@ -15,6 +16,7 @@ const LOGIN_SLIDES = [
 
 export function LoginScreen({ onLogin }: { onLogin: (u: AuthUser) => void }) {
   const [slide, setSlide] = useState(0)
+  const [selectedRole, setSelectedRole] = useState<UserRole | null>(null)
   const [isMobile, setIsMobile] = useState(
     () => typeof window !== 'undefined' && window.innerWidth < 768
   )
@@ -30,16 +32,10 @@ export function LoginScreen({ onLogin }: { onLogin: (u: AuthUser) => void }) {
     return () => window.removeEventListener('resize', check)
   }, [])
 
-  const DEFAULT_USERS: Record<UserRole, AuthUser> = {
-    admin: MOCK_USERS['admin@laspalomas.mx'].user,
-    resident: MOCK_USERS['carlos.mendoza@email.com'].user,
-    security: MOCK_USERS['guardia01'].user,
-  }
-
   return (
     <div className="fixed inset-0 flex">
       {/* Carousel: left panel on desktop, full-screen bg on mobile */}
-      <div className="absolute inset-0 md:relative md:w-[65%] lg:w-[70%] overflow-hidden flex-shrink-0">
+      <div className="absolute inset-0 md:relative md:w-[60%] lg:w-[65%] overflow-hidden flex-shrink-0">
         {/* Photos with crossfade */}
         <div className="absolute inset-0 scale-110 md:scale-100 carousel-imgs">
           {LOGIN_SLIDES.map((s, i) => (
@@ -96,25 +92,20 @@ export function LoginScreen({ onLogin }: { onLogin: (u: AuthUser) => void }) {
           }}
         />
 
-        {/* Desktop: bottom branding */}
+        {/* Desktop: bottom branding with ultra-crisp logo */}
         <div className="absolute bottom-0 left-0 right-0 p-8 lg:p-10 pointer-events-none hidden md:block">
-          <div className="flex items-center gap-3 mb-5">
-            <div
-              className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center relative bg-white border border-white/50 shadow-md p-0.5"
-              style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
-            >
-              <img src="/logo.jpeg" alt="Logo" className="w-full h-full object-cover rounded-lg" />
-            </div>
+          <div className="flex items-center gap-3.5 mb-4">
+            <VeciLomasLogo className="w-12 h-12" rounded="rounded-2xl" shadow={true} />
             <div>
-              <p className="font-display font-bold text-white text-lg leading-none drop-shadow">
+              <p className="font-display font-black text-white text-xl leading-none drop-shadow-md tracking-tight">
                 Las Palomas
               </p>
-              <p className="text-[10px] font-semibold text-white/70 uppercase tracking-widest mt-0.5">
-                Portal Residencial HOA
+              <p className="text-[11px] font-mono font-bold text-teal-200/90 uppercase tracking-widest mt-1">
+                ✦ Portal Residencial HOA
               </p>
             </div>
           </div>
-          <p className="text-white/90 text-base font-medium drop-shadow-sm mb-5">
+          <p className="text-white/95 text-base font-medium drop-shadow-sm mb-5">
             {LOGIN_SLIDES[slide].caption}
           </p>
           <div className="flex items-center gap-2 pointer-events-auto">
@@ -134,80 +125,81 @@ export function LoginScreen({ onLogin }: { onLogin: (u: AuthUser) => void }) {
         </div>
       </div>
 
-      {/* Right panel: role selection */}
-      <div className="relative z-10 flex-1 flex flex-col md:bg-white overflow-hidden">
+      {/* Right panel: role selection or login form */}
+      <div className="relative z-10 flex-1 flex flex-col md:bg-white overflow-hidden shadow-2xl">
         {/* Desktop: teal glow accents */}
         <div
           className="absolute top-0 right-0 w-80 h-80 rounded-full pointer-events-none hidden md:block"
           style={{
-            background: `radial-gradient(circle, ${BRAND_COLORS.primary}12 0%, transparent 70%)`,
+            background: `radial-gradient(circle, ${BRAND_COLORS.primary}10 0%, transparent 70%)`,
             transform: 'translate(35%,-35%)',
           }}
         />
         <div
           className="absolute bottom-0 left-0 w-64 h-64 rounded-full pointer-events-none hidden md:block"
           style={{
-            background: `radial-gradient(circle, ${BRAND_COLORS.primary}0e 0%, transparent 70%)`,
+            background: `radial-gradient(circle, ${BRAND_COLORS.primary}0c 0%, transparent 70%)`,
             transform: 'translate(-35%,35%)',
           }}
         />
 
         {/* Main content */}
-        <div className="flex-1 flex items-center justify-center px-7 md:px-8 lg:px-12 py-8 overflow-y-auto">
-          <div className="w-full max-w-[360px] animate-fade-in">
-            {/* Eyebrow */}
-            <div className="flex items-center gap-3 mb-6">
-              <div
-                className="h-px flex-1"
-                style={{
-                  background: isMobile
-                    ? 'linear-gradient(to right, transparent, rgba(255,255,255,0.35))'
-                    : `linear-gradient(to right, transparent, ${BRAND_COLORS.primary}40)`,
-                }}
-              />
-              <span
-                className="text-[11px] font-mono font-semibold uppercase tracking-widest"
-                style={{ color: isMobile ? 'rgba(255,255,255,0.75)' : BRAND_COLORS.primary }}
-              >
-                Acceso al portal
-              </span>
-              <div
-                className="h-px flex-1"
-                style={{
-                  background: isMobile
-                    ? 'linear-gradient(to left, transparent, rgba(255,255,255,0.35))'
-                    : `linear-gradient(to left, transparent, ${BRAND_COLORS.primary}40)`,
-                }}
-              />
-            </div>
+        <div className="flex-1 flex items-center justify-center px-6 md:px-8 lg:px-12 py-8 overflow-y-auto">
+          <div className="w-full max-w-[420px]">
+            {selectedRole === null ? (
+              <div className="animate-fade-in">
+                {/* Eyebrow */}
+                <div className="flex items-center gap-3 mb-5">
+                  <div
+                    className="h-px flex-1"
+                    style={{
+                      background: isMobile
+                        ? 'linear-gradient(to right, transparent, rgba(255,255,255,0.35))'
+                        : `linear-gradient(to right, transparent, ${BRAND_COLORS.primary}40)`,
+                    }}
+                  />
+                  <span
+                    className="text-[11px] font-mono font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-teal-50 text-teal-800 border border-teal-200/50"
+                  >
+                    Acceso al portal
+                  </span>
+                  <div
+                    className="h-px flex-1"
+                    style={{
+                      background: isMobile
+                        ? 'linear-gradient(to left, transparent, rgba(255,255,255,0.35))'
+                        : `linear-gradient(to left, transparent, ${BRAND_COLORS.primary}40)`,
+                    }}
+                  />
+                </div>
 
-            {/* Heading */}
-            <h1
-              className="font-display font-bold leading-tight mb-2"
-              style={{ fontSize: '2rem', color: isMobile ? '#fff' : '#0f172a' }}
-            >
-              Bienvenido
-            </h1>
-            <p
-              className="text-sm mb-7 leading-relaxed"
-              style={{ color: isMobile ? 'rgba(255,255,255,0.65)' : '#94a3b8' }}
-            >
-              Selecciona tu rol para acceder al portal residencial de Las Palomas.
-            </p>
+                {/* Heading */}
+                <h1
+                  className="font-display font-extrabold leading-tight mb-2 tracking-tight text-slate-900"
+                  style={{ fontSize: '2.1rem' }}
+                >
+                  Bienvenido
+                </h1>
+                <p className="text-sm mb-6 leading-relaxed text-slate-500 font-normal">
+                  Selecciona tu tipo de perfil para ingresar a tu área de trabajo residencial:
+                </p>
 
-            {/* Role cards */}
-            <RoleCards onLogin={onLogin} users={DEFAULT_USERS} glass={isMobile} />
+                {/* Role cards */}
+                <RoleCards onSelectRole={setSelectedRole} glass={isMobile} />
+              </div>
+            ) : (
+              <LoginForm
+                role={selectedRole}
+                onBack={() => setSelectedRole(null)}
+                onLogin={onLogin}
+              />
+            )}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="px-7 md:px-8 lg:px-12 pb-6 flex-shrink-0 text-center md:hidden">
-          <p className="text-[11px]" style={{ color: 'rgba(255,255,255,0.35)' }}>
-            © 2026 Condominios Las Palomas
-          </p>
-        </div>
-        <div className="hidden md:block px-8 lg:px-12 pb-7 flex-shrink-0 text-center">
-          <p className="text-[11px] text-slate-400">
+        <div className="px-6 md:px-8 lg:px-12 pb-5 flex-shrink-0 text-center">
+          <p className="text-[11px] text-slate-400 font-medium">
             © 2026 Condominios Las Palomas · Todos los derechos reservados
           </p>
         </div>

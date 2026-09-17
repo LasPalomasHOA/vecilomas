@@ -1,6 +1,7 @@
 import type { AuthUser, Module, NavItem, UserRole } from '@/types'
 import { BRAND_COLORS } from '@/types'
 import Ico from '@/components/common/Icons'
+import VeciLomasLogo from '@/components/common/VeciLomasLogo'
 
 const ROLE_LABEL: Record<UserRole, string> = {
   admin: 'Administración',
@@ -34,9 +35,7 @@ export function TopNav({
           className="flex items-center gap-3 flex-shrink-0 cursor-pointer group select-none"
           onClick={() => onSelect(homeModule)}
         >
-          <div className="w-10 h-10 rounded-2xl overflow-hidden flex items-center justify-center bg-white shadow-[0_4px_14px_rgba(0,128,128,0.25)] transition-all duration-300 group-hover:scale-105 border border-slate-200/80 p-0.5">
-            <img src="/logo.jpeg" alt="Logo" className="w-full h-full object-cover rounded-xl" />
-          </div>
+          <VeciLomasLogo className="w-10 h-10 group-hover:scale-105 transition-transform duration-300" rounded="rounded-2xl" />
           <div>
             <div className="flex items-center gap-1.5">
               <p className="font-display font-extrabold text-slate-900 text-base sm:text-lg leading-none tracking-tight group-hover:text-[#008080] transition-colors">
