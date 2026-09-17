@@ -34,13 +34,8 @@ export function TopNav({
           className="flex items-center gap-3 flex-shrink-0 cursor-pointer group select-none"
           onClick={() => onSelect(homeModule)}
         >
-          <div
-            className="w-10 h-10 rounded-2xl flex items-center justify-center text-white font-display font-black text-lg shadow-[0_4px_14px_rgba(0,128,128,0.35)] transition-all duration-300 group-hover:scale-105 border border-white/20"
-            style={{
-              background: `linear-gradient(135deg, #008080 0%, #004c4c 100%)`,
-            }}
-          >
-            P
+          <div className="w-10 h-10 rounded-2xl overflow-hidden flex items-center justify-center bg-white shadow-[0_4px_14px_rgba(0,128,128,0.25)] transition-all duration-300 group-hover:scale-105 border border-slate-200/80 p-0.5">
+            <img src="/logo.jpeg" alt="Logo" className="w-full h-full object-cover rounded-xl" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">

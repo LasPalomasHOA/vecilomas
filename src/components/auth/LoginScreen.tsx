@@ -100,10 +100,10 @@ export function LoginScreen({ onLogin }: { onLogin: (u: AuthUser) => void }) {
         <div className="absolute bottom-0 left-0 right-0 p-8 lg:p-10 pointer-events-none hidden md:block">
           <div className="flex items-center gap-3 mb-5">
             <div
-              className="w-10 h-10 rounded-xl flex items-center justify-center relative bg-white/15 border border-white/30"
+              className="w-10 h-10 rounded-xl overflow-hidden flex items-center justify-center relative bg-white border border-white/50 shadow-md p-0.5"
               style={{ backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)' }}
             >
-              <span className="font-display font-bold text-lg text-white z-10 relative">P</span>
+              <img src="/logo.jpeg" alt="Logo" className="w-full h-full object-cover rounded-lg" />
             </div>
             <div>
               <p className="font-display font-bold text-white text-lg leading-none drop-shadow">
