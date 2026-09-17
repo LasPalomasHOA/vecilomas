@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <rect width="32" height="32" rx="7" fill="#ffffff" />
+  <!-- Red top wave -->
+  <path d="M 6 10 C 10 6.5, 14 6.5, 17 9.5 C 20 12, 23 11, 26 8.5" fill="none" stroke="#DC2626" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- Green middle wave -->
+  <path d="M 6 16 C 10 12.5, 14 12.5, 17 15.5 C 20 18, 23 17, 26 14.5" fill="none" stroke="#059669" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />
+  <!-- Yellow bottom wave -->
+  <path d="M 6 22 C 10 18.5, 14 18.5, 17 21.5 C 20 24, 23 23, 26 20.5" fill="none" stroke="#D97706" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" />
+</svg>
