@@ -1,0 +1,104 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import 'tailwindcss';
+
+@theme {
+  --font-display: 'Outfit', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --color-brand: #008080;
+  --color-brand-dark: #004c4c;
+  --color-brand-muted: #7eb0a6;
+  --color-brand-light: #f0fdfa;
+  --color-brand-deep: #003333;
+  --animate-fade-in: fade-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+  --animate-pulse-slow: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+@keyframes fade-in {
+  0% { opacity: 0; transform: translateY(6px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  background-color: #f6f8fa;
+  color: #0f172a;
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #cbd5e1 transparent;
+}
+
+::selection {
+  background: rgba(0, 128, 128, 0.2);
+  color: #003333;
+}
+
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Luxury Card Surfaces with Top Specular Reflection & Coastal Ambient Depth */
+.modern-card {
+  background-color: #ffffff;
+  border: 1px solid rgba(0, 51, 51, 0.07);
+  border-radius: 1rem;
+  box-shadow: 
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.9),
+    0 1px 3px 0 rgba(0, 51, 51, 0.03),
+    0 6px 18px -3px rgba(0, 51, 51, 0.04);
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.modern-card:hover {
+  box-shadow: 
+    inset 0 1px 0 0 rgba(255, 255, 255, 1),
+    0 12px 30px -4px rgba(0, 51, 51, 0.08),
+    0 4px 12px -2px rgba(0, 51, 51, 0.04);
+  border-color: rgba(0, 128, 128, 0.2);
+}
+
+/* Subtle dot-mesh texture */
+.luxury-grid-bg {
+  background-image: radial-gradient(rgba(0, 76, 76, 0.07) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Shimmer gradient line */
+.shimmer-line {
+  background: linear-gradient(90deg, transparent 0%, rgba(0, 128, 128, 0.5) 30%, rgba(245, 158, 11, 0.4) 70%, transparent 100%);
+}
+
+/* Login carousel */
+@media (max-width: 767px) {
+  .carousel-imgs {
+    filter: blur(6px) brightness(0.9) saturate(1.05);
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "description": "Centralizes condo management with resident communication, amenity booking, visitor access control, and maintenance tracking for seamless community living.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

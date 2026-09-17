@@ -1,0 +1,32 @@
+{
+  "expo": {
+    "name": "Las Palomas Resort",
+    "slug": "las-palomas-app",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": false,
+    "splash": {
+      "resizeMode": "contain",
+      "backgroundColor": "#004c4c"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.laspalomas.resort"
+    },
+    "android": {
+      "package": "com.laspalomas.resort",
+      "adaptiveIcon": {
+        "backgroundColor": "#004c4c"
+      },
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE",
+        "CAMERA"
+      ]
+    },
+    "web": {
+      "bundler": "metro"
+    }
+  }
+}
