@@ -145,11 +145,11 @@ export function LoginScreen({ onLogin }: { onLogin: (u: AuthUser) => void }) {
 
         {/* Main content */}
         <div className="flex-1 flex items-center justify-center px-6 md:px-8 lg:px-12 py-8 overflow-y-auto">
-          <div className="w-full max-w-[420px]">
+          <div className="w-full max-w-[360px] md:max-w-[420px]">
             {selectedRole === null ? (
               <div className="animate-fade-in">
                 {/* Eyebrow */}
-                <div className="flex items-center gap-3 mb-5">
+                <div className="flex items-center gap-3 mb-6">
                   <div
                     className="h-px flex-1"
                     style={{
@@ -159,7 +159,11 @@ export function LoginScreen({ onLogin }: { onLogin: (u: AuthUser) => void }) {
                     }}
                   />
                   <span
-                    className="text-[11px] font-mono font-bold uppercase tracking-widest px-2 py-0.5 rounded-full bg-teal-50 text-teal-800 border border-teal-200/50"
+                    className={
+                      isMobile
+                        ? 'text-[11px] font-mono font-semibold uppercase tracking-widest text-white/75'
+                        : 'text-[11px] font-mono font-bold uppercase tracking-widest px-2.5 py-0.5 rounded-full bg-teal-50 text-teal-800 border border-teal-200/60'
+                    }
                   >
                     Acceso al portal
                   </span>
@@ -175,13 +179,13 @@ export function LoginScreen({ onLogin }: { onLogin: (u: AuthUser) => void }) {
 
                 {/* Heading */}
                 <h1
-                  className="font-display font-extrabold leading-tight mb-2 tracking-tight text-slate-900"
-                  style={{ fontSize: '2.1rem' }}
+                  className="font-display font-bold leading-tight mb-2 tracking-tight text-white md:text-slate-900"
+                  style={{ fontSize: '2rem' }}
                 >
                   Bienvenido
                 </h1>
-                <p className="text-sm mb-6 leading-relaxed text-slate-500 font-normal">
-                  Selecciona tu tipo de perfil para ingresar a tu área de trabajo residencial:
+                <p className="text-sm mb-7 leading-relaxed font-normal text-white/70 md:text-slate-500">
+                  Selecciona tu rol para acceder al portal residencial de Las Palomas.
                 </p>
 
                 {/* Role cards */}
@@ -192,13 +196,19 @@ export function LoginScreen({ onLogin }: { onLogin: (u: AuthUser) => void }) {
                 role={selectedRole}
                 onBack={() => setSelectedRole(null)}
                 onLogin={onLogin}
+                glass={isMobile}
               />
             )}
           </div>
         </div>
 
         {/* Footer */}
-        <div className="px-6 md:px-8 lg:px-12 pb-5 flex-shrink-0 text-center">
+        <div className="px-6 md:px-8 lg:px-12 pb-6 flex-shrink-0 text-center md:hidden">
+          <p className="text-[11px] text-white/40 font-medium">
+            © 2026 Condominios Las Palomas
+          </p>
+        </div>
+        <div className="hidden md:block px-6 md:px-8 lg:px-12 pb-5 flex-shrink-0 text-center">
           <p className="text-[11px] text-slate-400 font-medium">
             © 2026 Condominios Las Palomas · Todos los derechos reservados
           </p>
