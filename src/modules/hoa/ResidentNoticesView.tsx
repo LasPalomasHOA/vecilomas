@@ -59,10 +59,9 @@ export function ResidentNoticesView({ unit = 'A-101' }: ResidentNoticesViewProps
   return (
     <div className="space-y-4">
       <ModHero
-        icon={<Ico n="bell" c="w-6 h-6" />}
-        title="Comunicados y Avisos Oficiales"
-        desc="Mantente al día con las circulares de la administración, avisos prioritarios de mantenimiento, asambleas y reglamentos de la comunidad."
-        badge="Portal Vecinal"
+        icon={<Ico n="bell" c="w-6 h-6 text-teal-700" />}
+        title="Comunicados y Documentos HOA"
+        desc="Mantente informado con los avisos oficiales de la administración, reglamentos internos y actas de asamblea de Las Palomas Resort."
       />
 
       {/* Toast Feedback */}

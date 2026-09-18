@@ -1,9 +1,11 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { AuthUser, Module } from '@/types'
+import type { Amenity } from '@/types/amenities'
 import { useData } from '@/context/DataContext'
 import GCard from '@/components/common/Card'
 import Ico from '@/components/common/Icons'
 import loginImg0 from '@/imports/image.png'
+import AmenityFormModal from '@/modules/amenities/AmenityFormModal'
 
 interface AdminDashboardProps {
   user: AuthUser
@@ -11,13 +13,44 @@ interface AdminDashboardProps {
 }
 
 export function AdminDashboard({ user, onNav }: AdminDashboardProps) {
-  const { residents, visits, bookings, fees, tickets } = useData()
+  const {
+    residents,
+    visits,
+    bookings,
+    fees,
+    tickets,
+    addAmenity,
+    updateBookingStatus,
+  } = useData()
 
-  const inFacilityCount = visits.filter(v => v.status === 'En Instalaciones').length
+  const [isAmenityModalOpen, setIsAmenityModalOpen] = useState(false)
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
+
+  const inFacilityCount = visits.filter(v => v.status === 'En Sitio' || v.status === 'En Instalaciones').length
   const overdueFees = fees.filter(f => f.status === 'Vencida')
   const overdueTotal = overdueFees.reduce((acc, f) => acc + f.amount, 0)
-  const pendingBookings = bookings.filter(b => b.status === 'Pendiente').length
+  const pendingBookingsList = bookings.filter(b => b.status === 'Pendiente')
   const openTickets = tickets.filter(t => t.status !== 'Resuelto').length
+
+  function showToast(msg: string) {
+    setToastMessage(msg)
+    setTimeout(() => setToastMessage(null), 3500)
+  }
+
+  function handleSaveAmenity(data: Omit<Amenity, 'id'> | Amenity) {
+    addAmenity(data)
+    showToast(`¡Nueva amenidad "${data.name}" agregada con éxito!`)
+  }
+
+  function handleApproveBooking(id: number, name: string) {
+    updateBookingStatus(id, 'Aprobada')
+    showToast(`Reservación para "${name}" aprobada.`)
+  }
+
+  function handleRejectBooking(id: number, name: string) {
+    updateBookingStatus(id, 'Rechazada')
+    showToast(`Reservación para "${name}" rechazada.`)
+  }
 
   const stats = [
     {
@@ -27,7 +60,7 @@ export function AdminDashboard({ user, onNav }: AdminDashboardProps) {
       badge: 'Directorio',
       badgeStyle: 'bg-teal-50 text-teal-800 border-teal-200/80',
       icon: <Ico n="users" c="w-5 h-5 text-teal-700" />,
-      iconBoxStyle: 'bg-gradient-to-br from-teal-500/20 to-teal-700/10 border-teal-500/25 text-teal-800 shadow-[0_2px_8px_rgba(0,128,128,0.15)]',
+      iconBoxStyle: 'bg-teal-50 border-teal-200 text-teal-800 shadow-2xs',
       accentColor: '#008080',
       onClick: () => onNav('hoa'),
     },
@@ -38,18 +71,18 @@ export function AdminDashboard({ user, onNav }: AdminDashboardProps) {
       badge: 'Caseta Live',
       badgeStyle: 'bg-emerald-50 text-emerald-800 border-emerald-200/80',
       icon: <Ico n="shield" c="w-5 h-5 text-emerald-700" />,
-      iconBoxStyle: 'bg-gradient-to-br from-emerald-500/20 to-emerald-700/10 border-emerald-500/25 text-emerald-800 shadow-[0_2px_8px_rgba(16,185,129,0.15)]',
+      iconBoxStyle: 'bg-emerald-50 border-emerald-200 text-emerald-800 shadow-2xs',
       accentColor: '#059669',
       onClick: () => onNav('access'),
     },
     {
       label: 'Reservas Pendientes',
-      value: String(pendingBookings),
-      sub: `${bookings.length} reservaciones registradas`,
-      badge: pendingBookings > 0 ? 'Por Aprobar' : 'Al día',
-      badgeStyle: pendingBookings > 0 ? 'bg-indigo-50 text-indigo-800 border-indigo-200/80' : 'bg-slate-100 text-slate-600 border-slate-200',
+      value: String(pendingBookingsList.length),
+      sub: `${bookings.length} reservaciones totales`,
+      badge: pendingBookingsList.length > 0 ? `${pendingBookingsList.length} Por Aprobar` : 'Al día',
+      badgeStyle: pendingBookingsList.length > 0 ? 'bg-indigo-50 text-indigo-800 border-indigo-200/80 font-bold' : 'bg-slate-100 text-slate-600 border-slate-200',
       icon: <Ico n="calendar" c="w-5 h-5 text-indigo-700" />,
-      iconBoxStyle: 'bg-gradient-to-br from-indigo-500/20 to-indigo-700/10 border-indigo-500/25 text-indigo-800 shadow-[0_2px_8px_rgba(99,102,241,0.15)]',
+      iconBoxStyle: 'bg-indigo-50 border-indigo-200 text-indigo-800 shadow-2xs',
       accentColor: '#6366f1',
       onClick: () => onNav('amenities'),
     },
@@ -60,43 +93,51 @@ export function AdminDashboard({ user, onNav }: AdminDashboardProps) {
       badge: overdueFees.length > 0 ? 'Cobro Req.' : 'Al corriente',
       badgeStyle: overdueFees.length > 0 ? 'bg-red-50 text-red-800 border-red-200/80' : 'bg-slate-100 text-slate-600 border-slate-200',
       icon: <Ico n="dollar" c="w-5 h-5 text-red-700" />,
-      iconBoxStyle: 'bg-gradient-to-br from-red-500/20 to-rose-700/10 border-red-500/25 text-red-800 shadow-[0_2px_8px_rgba(239,68,68,0.15)]',
+      iconBoxStyle: 'bg-red-50 border-red-200 text-red-800 shadow-2xs',
       accentColor: '#dc2626',
       onClick: () => onNav('finance'),
     },
   ]
 
-  const quickActions: { label: string; m: Module; icon: ReactNode; desc: string; iconBoxStyle: string; accentColor: string }[] = [
+  const quickActions: { label: string; m?: Module; icon: ReactNode; desc: string; iconBoxStyle: string; accentColor: string; onClick?: () => void }[] = [
+    {
+      label: '+ Nueva Amenidad',
+      icon: <Ico n="plus" c="w-5 h-5 text-teal-700" />,
+      desc: 'Registrar nuevo espacio o alberca',
+      iconBoxStyle: 'bg-teal-50 border-teal-200 text-teal-800',
+      accentColor: '#008080',
+      onClick: () => setIsAmenityModalOpen(true),
+    },
     {
       label: 'Control de Accesos',
       m: 'access',
-      icon: <Ico n="shield" c="w-6 h-6 text-[#008080]" />,
+      icon: <Ico n="shield" c="w-5 h-5 text-teal-700" />,
       desc: 'Pases QR y validación en caseta',
-      iconBoxStyle: 'bg-gradient-to-br from-teal-500/15 to-teal-700/10 border-teal-500/20 text-teal-800 shadow-xs',
+      iconBoxStyle: 'bg-teal-50 border-teal-200 text-teal-800',
       accentColor: '#008080',
     },
     {
       label: 'Gestionar Reservas',
       m: 'amenities',
-      icon: <Ico n="calendar" c="w-6 h-6 text-indigo-600" />,
-      desc: `${pendingBookings} solicitudes pendientes`,
-      iconBoxStyle: 'bg-gradient-to-br from-indigo-500/15 to-indigo-700/10 border-indigo-500/20 text-indigo-800 shadow-xs',
+      icon: <Ico n="calendar" c="w-5 h-5 text-indigo-600" />,
+      desc: `${pendingBookingsList.length} solicitudes pendientes`,
+      iconBoxStyle: 'bg-indigo-50 border-indigo-200 text-indigo-800',
       accentColor: '#6366f1',
     },
     {
       label: 'Publicar Aviso HOA',
       m: 'hoa-board',
-      icon: <Ico n="building" c="w-6 h-6 text-emerald-600" />,
+      icon: <Ico n="building" c="w-5 h-5 text-emerald-600" />,
       desc: 'Comunicados y circulares',
-      iconBoxStyle: 'bg-gradient-to-br from-emerald-500/15 to-emerald-700/10 border-emerald-500/20 text-emerald-800 shadow-xs',
+      iconBoxStyle: 'bg-emerald-50 border-emerald-200 text-emerald-800',
       accentColor: '#10b981',
     },
     {
       label: 'Tickets de Mantenimiento',
       m: 'finance-tickets',
-      icon: <Ico n="tool" c="w-6 h-6 text-amber-600" />,
+      icon: <Ico n="tool" c="w-5 h-5 text-amber-600" />,
       desc: `${openTickets} casos en atención`,
-      iconBoxStyle: 'bg-gradient-to-br from-amber-400/15 to-amber-600/10 border-amber-500/20 text-amber-800 shadow-xs',
+      iconBoxStyle: 'bg-amber-50 border-amber-200 text-amber-800',
       accentColor: '#f59e0b',
     },
   ]
@@ -105,12 +146,20 @@ export function AdminDashboard({ user, onNav }: AdminDashboardProps) {
 
   return (
     <div className="space-y-6">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="p-4 rounded-2xl bg-teal-50 border border-teal-200 text-teal-900 text-xs sm:text-sm font-bold flex items-center gap-3 animate-fade-in shadow-xs">
+          <Ico n="check" c="w-5 h-5 text-teal-600" />
+          {toastMessage}
+        </div>
+      )}
+
       {/* Modern Cinematic Admin Hero */}
       <div
         className="rounded-2xl relative overflow-hidden shadow-md border border-teal-900/30"
         style={{
           background:
-            'linear-gradient(135deg, rgba(0, 51, 51, 0.96) 0%, rgba(0, 76, 76, 0.90) 50%, rgba(15, 23, 42, 0.94) 100%)',
+            'linear-gradient(135deg, rgba(0, 51, 51, 0.97) 0%, rgba(0, 76, 76, 0.92) 50%, rgba(15, 23, 42, 0.96) 100%)',
         }}
       >
         {/* Coastal Background Image */}
@@ -118,39 +167,48 @@ export function AdminDashboard({ user, onNav }: AdminDashboardProps) {
           <img
             src={loginImg0}
             alt="Resort Aerial"
-            className="w-full h-full object-cover filter blur-[5px] opacity-35"
+            className="w-full h-full object-cover filter blur-[4px] opacity-30"
           />
         </div>
 
-        {/* Ambient Teal/Gold Highlight Orbs */}
+        {/* Ambient Highlights */}
         <div className="absolute -top-12 -right-12 w-64 h-64 rounded-full bg-teal-400/20 blur-2xl pointer-events-none" />
         <div className="absolute -bottom-12 -left-12 w-48 h-48 rounded-full bg-amber-400/10 blur-xl pointer-events-none" />
 
         <div className="relative z-10 p-4 sm:p-7 md:p-8 flex flex-col md:flex-row md:items-center justify-between gap-4 sm:gap-6">
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 mb-1 sm:mb-1.5">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] sm:text-[10px] font-mono uppercase tracking-widest font-bold text-teal-200 bg-teal-950/60 border border-teal-400/30 backdrop-blur-md">
-                <span className="w-1.5 h-1.5 rounded-full bg-teal-300 animate-pulse" />
+            <div className="flex items-center gap-2 mb-2 flex-wrap">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-mono uppercase tracking-wider font-semibold text-teal-200 bg-teal-950/70 border border-teal-400/30 backdrop-blur-md">
+                <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
                 Administración HOA & Gobernanza
               </span>
+
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-medium text-slate-200 bg-white/10 border border-white/15 backdrop-blur-md">
+                <Ico n="sun" c="w-3.5 h-3.5 text-amber-300" />
+                <span>Puerto Peñasco · Operación Normal</span>
+              </div>
             </div>
 
-            <h1 className="text-xl sm:text-2xl md:text-3xl font-display font-extrabold text-white tracking-tight leading-tight drop-shadow-xs truncate">
+            <h1 className="text-xl sm:text-2xl md:text-3xl font-display font-extrabold text-white tracking-tight leading-tight truncate">
               Bienvenido, {firstName}
             </h1>
-            <p className="text-xs sm:text-sm mt-0.5 sm:mt-1 text-slate-200 font-normal max-w-xl leading-relaxed">
-              Panel general de control administrativo de Las Palomas Resort & Residences.
+            <p className="text-xs sm:text-sm mt-1 text-slate-200/90 font-normal max-w-xl leading-relaxed">
+              Panel general de control operativo, finanzas, amenidades y accesos de Las Palomas Resort.
             </p>
 
-            <div className="flex items-center gap-2 mt-3 sm:mt-4 flex-wrap">
+            <div className="flex items-center gap-2.5 mt-3 sm:mt-4 flex-wrap">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 sm:py-1.5 rounded-xl bg-white/10 border border-white/20 backdrop-blur-md text-white text-[11px] sm:text-xs font-semibold whitespace-nowrap shadow-xs">
                 <Ico n="shield" c="w-3.5 h-3.5 text-teal-300" />
-                <span>Condominio: <strong className="font-extrabold text-white">Torre Vista Mar (48 Deptos)</strong></span>
+                <span>Complejo Residencial: <strong className="font-extrabold text-white">Torres Las Palomas</strong></span>
               </div>
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 sm:py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-400/30 backdrop-blur-md text-emerald-200 text-[11px] sm:text-xs font-bold whitespace-nowrap shadow-xs">
-                <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-300 animate-pulse" />
-                Sistema Operativo 100%
-              </div>
+
+              <button
+                onClick={() => setIsAmenityModalOpen(true)}
+                className="inline-flex items-center gap-1.5 px-3 py-1 sm:py-1.5 rounded-xl bg-teal-500 hover:bg-teal-400 text-teal-950 font-bold text-[11px] sm:text-xs shadow-sm active:scale-95 transition-all cursor-pointer"
+              >
+                <Ico n="plus" c="w-3.5 h-3.5 text-teal-950" />
+                <span>+ Nueva Amenidad</span>
+              </button>
             </div>
           </div>
 
@@ -164,31 +222,27 @@ export function AdminDashboard({ user, onNav }: AdminDashboardProps) {
             </div>
           </div>
         </div>
-
-        {/* Bottom Shimmer Line */}
-        <div className="h-[2px] w-full shimmer-line opacity-80" />
       </div>
 
-      {/* Modern Luxury KPI Grid (2 cols on mobile, 4 cols on desktop) */}
+      {/* Symmetrical KPI Grid */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-4">
         {stats.map((s, idx) => (
           <div
             key={idx}
             onClick={s.onClick}
-            className="p-3 sm:p-5 rounded-2xl bg-white border border-teal-950/[0.08] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.95),0_1px_3px_rgba(0,51,51,0.03),0_6px_20px_rgba(0,51,51,0.04)] hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_12px_28px_rgba(0,51,51,0.08)] hover:border-teal-500/30 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group flex flex-col justify-between relative overflow-hidden active:scale-[0.98]"
+            className="p-3.5 sm:p-5 rounded-2xl bg-white border border-teal-950/[0.08] shadow-[0_1px_3px_rgba(0,51,51,0.03),0_6px_20px_rgba(0,51,51,0.04)] hover:shadow-[0_12px_28px_rgba(0,51,51,0.08)] hover:border-teal-500/30 hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group flex flex-col justify-between relative overflow-hidden active:scale-[0.98]"
           >
-            {/* Left Accent Glow Bar */}
             <div
-              className="absolute left-0 top-2 sm:top-3 bottom-2 sm:bottom-3 w-[3px] sm:w-[3.5px] rounded-r-full transition-all duration-200 opacity-0 group-hover:opacity-100 group-hover:scale-y-100 scale-y-50"
+              className="absolute left-0 top-3 bottom-3 w-[3.5px] rounded-r-full transition-all duration-200 opacity-0 group-hover:opacity-100"
               style={{ backgroundColor: s.accentColor }}
             />
 
             <div>
-              <div className="flex items-center justify-between gap-1 mb-2 sm:mb-3">
+              <div className="flex items-center justify-between gap-1 mb-2.5 sm:mb-3">
                 <div className={`w-8 h-8 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0 border transition-transform group-hover:scale-105 ${s.iconBoxStyle}`}>
                   {s.icon}
                 </div>
-                <span className={`text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 shadow-2xs max-w-[85px] sm:max-w-none truncate ${s.badgeStyle}`}>
+                <span className={`text-[9px] sm:text-[10px] font-bold px-2 py-0.5 rounded-full border whitespace-nowrap shrink-0 max-w-[85px] sm:max-w-none truncate ${s.badgeStyle}`}>
                   {s.badge}
                 </span>
               </div>
@@ -209,73 +263,93 @@ export function AdminDashboard({ user, onNav }: AdminDashboardProps) {
         ))}
       </div>
 
-      {/* Admin Modules & Management Grid */}
+      {/* Main Grid: Pending Bookings Quick Approval + Quick Actions */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        {/* Activity Feed */}
+        {/* Pending Bookings Quick Approval Widget */}
         <GCard className="lg:col-span-2">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between mb-4 pb-3 border-b border-teal-950/[0.06] gap-2">
             <div>
               <div className="flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-[#008080]" />
+                <span className="w-2 h-2 rounded-full bg-indigo-500" />
                 <h3 className="font-display font-bold text-slate-900 text-base sm:text-lg leading-tight">
-                  Actividad Operativa Reciente
+                  Aprobación Rápida de Reservaciones
                 </h3>
               </div>
-              <p className="text-xs text-slate-500 mt-0.5">Ingresos de caseta y tickets registrados</p>
+              <p className="text-xs text-slate-500 mt-0.5">Solicitudes de residentes pendientes de confirmación</p>
             </div>
-            <span className="text-xs font-mono text-[#008080] font-bold bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-100 whitespace-nowrap self-start sm:self-auto shrink-0">
-              ● En tiempo real
-            </span>
+            <button
+              onClick={() => onNav('amenities')}
+              className="text-xs font-bold text-[#008080] hover:text-[#004c4c] transition-colors flex items-center gap-1 cursor-pointer bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-100"
+            >
+              Ver todas ({bookings.length}) →
+            </button>
           </div>
 
-          <div className="space-y-2.5">
-            {visits.slice(0, 3).map(v => (
-              <div
-                key={`vis-${v.id}`}
-                className="p-3.5 rounded-2xl bg-slate-50/80 border border-slate-200/70 flex items-center justify-between gap-3 hover:bg-white hover:border-teal-200 hover:shadow-xs transition-all"
-              >
-                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                  <div
-                    className={`w-2.5 h-2.5 rounded-full shrink-0 ${
-                      v.status === 'En Instalaciones' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'
-                    }`}
-                  />
+          {pendingBookingsList.length > 0 ? (
+            <div className="space-y-3">
+              {pendingBookingsList.slice(0, 3).map(b => (
+                <div
+                  key={b.id}
+                  className="p-3.5 sm:p-4 rounded-2xl bg-slate-50/90 border border-slate-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-white hover:border-indigo-200 hover:shadow-xs transition-all"
+                >
                   <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-slate-900 truncate">
-                      {v.visitor} <span className="text-xs font-normal text-slate-500">— {v.type || 'Visita'} (U: {v.unit})</span>
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="font-bold text-slate-900 text-sm sm:text-base">{b.amenity}</span>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                        Pendiente
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-600 font-medium">
+                      Solicitante: <strong>{b.resident}</strong> (Unidad {b.unit}) · 👥 {b.guests} personas
                     </p>
-                    <p className="text-xs text-slate-500 font-mono mt-0.5 truncate">
-                      {v.status === 'En Instalaciones' ? '● En instalaciones' : `Salida a las ${v.exit} hrs`}
+                    <p className="text-[11px] font-mono text-slate-500 mt-0.5">
+                      📅 {b.date} · ⏰ {b.time} {b.cost ? `· Cuota: ${b.cost}` : ''}
                     </p>
                   </div>
-                </div>
-                <span className="text-xs font-mono font-bold text-slate-700 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs whitespace-nowrap shrink-0">
-                  {v.entry} hrs
-                </span>
-              </div>
-            ))}
 
-            {tickets.slice(0, 2).map(t => (
-              <div
-                key={`tkt-${t.id}`}
-                className="p-3.5 rounded-2xl bg-amber-50/40 border border-amber-200/60 flex items-center justify-between gap-3 hover:bg-white hover:shadow-xs transition-all"
-              >
-                <div className="flex items-center gap-2.5 min-w-0 flex-1">
-                  <div className="w-2.5 h-2.5 rounded-full shrink-0 bg-amber-500" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-slate-900 truncate">
-                      Ticket {t.id} ({t.priority}): <span className="text-xs font-normal text-slate-700">{t.issue}</span>
-                    </p>
-                    <p className="text-xs text-slate-500 font-mono mt-0.5 truncate">
-                      📍 {t.location} · {t.reporter}
-                    </p>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => handleApproveBooking(b.id, b.amenity)}
+                      className="px-3.5 py-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs transition-colors cursor-pointer"
+                    >
+                      Aprobar
+                    </button>
+                    <button
+                      onClick={() => handleRejectBooking(b.id, b.amenity)}
+                      className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-red-50 text-red-600 font-bold text-xs transition-colors cursor-pointer"
+                    >
+                      Rechazar
+                    </button>
                   </div>
                 </div>
-                <span className="text-xs font-mono font-bold text-amber-800 bg-amber-100/70 px-2.5 py-1 rounded-lg border border-amber-200 whitespace-nowrap shrink-0">
-                  {t.status}
-                </span>
+              ))}
+            </div>
+          ) : (
+            <div className="py-10 text-center rounded-2xl bg-slate-50/60 border border-slate-100">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center justify-center mx-auto mb-2">
+                <Ico n="check" c="w-6 h-6" />
               </div>
-            ))}
+              <p className="text-sm font-bold text-slate-800">Todas las reservaciones están al día</p>
+              <p className="text-xs text-slate-400 mt-0.5">No hay solicitudes pendientes de aprobación en este momento.</p>
+            </div>
+          )}
+
+          {/* Recent visits activity summary */}
+          <div className="mt-5 pt-4 border-t border-slate-100">
+            <p className="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2.5">Últimos Accesos por Caseta</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {visits.slice(0, 2).map(v => (
+                <div key={v.id} className="p-2.5 rounded-xl bg-white border border-slate-200 flex items-center justify-between text-xs">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-bold text-slate-900 truncate">{v.visitor}</p>
+                    <p className="text-[10px] text-slate-500 truncate">Unidad {v.unit} · {v.type || 'Visita'}</p>
+                  </div>
+                  <span className="font-mono text-[10px] text-teal-800 font-bold bg-teal-50 px-2 py-0.5 rounded-md border border-teal-100 shrink-0">
+                    {v.entryTime || '14:20'} hrs
+                  </span>
+                </div>
+              ))}
+            </div>
           </div>
         </GCard>
 
@@ -288,45 +362,58 @@ export function AdminDashboard({ user, onNav }: AdminDashboardProps) {
                 Acciones Rápidas
               </h3>
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">Atajos de administración</p>
+            <p className="text-xs text-slate-500 mt-0.5">Atajos de administración HOA</p>
           </div>
 
-          <div className="space-y-2.5 sm:space-y-3">
+          <div className="space-y-2.5">
             {quickActions.map(qa => (
               <button
                 key={qa.label}
-                onClick={() => onNav(qa.m)}
-                className="w-full flex items-center gap-3.5 sm:gap-4 p-3.5 sm:p-4 rounded-2xl text-left transition-all duration-200 bg-slate-50/90 border border-slate-200/80 hover:bg-white hover:border-teal-500/40 hover:shadow-md focus:outline-none group cursor-pointer relative overflow-hidden active:scale-[0.99]"
+                onClick={() => {
+                  if (qa.onClick) {
+                    qa.onClick()
+                  } else if (qa.m) {
+                    onNav(qa.m)
+                  }
+                }}
+                className="w-full flex items-center gap-3.5 p-3 sm:p-3.5 rounded-2xl text-left transition-all duration-200 bg-slate-50/90 border border-slate-200/80 hover:bg-white hover:border-teal-500/40 hover:shadow-sm focus:outline-none group cursor-pointer relative overflow-hidden active:scale-[0.99]"
               >
-                {/* Left accent */}
                 <div
                   className="absolute left-0 top-2.5 bottom-2.5 w-[3.5px] rounded-r-full transition-all duration-200 opacity-0 group-hover:opacity-100"
                   style={{ backgroundColor: qa.accentColor }}
                 />
 
                 <div
-                  className={`w-11 h-11 sm:w-12 sm:h-12 rounded-2xl flex items-center justify-center shrink-0 border transition-transform duration-200 group-hover:scale-105 shadow-2xs ${qa.iconBoxStyle}`}
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 border transition-transform duration-200 group-hover:scale-105 ${qa.iconBoxStyle}`}
                 >
                   {qa.icon}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="font-bold text-slate-900 text-sm sm:text-base group-hover:text-[#008080] leading-snug whitespace-nowrap truncate">
+                  <p className="font-bold text-slate-900 text-sm group-hover:text-[#008080] leading-snug truncate">
                     {qa.label}
                   </p>
-                  <p className="text-xs text-slate-500 mt-0.5 truncate leading-tight font-normal">
+                  <p className="text-[11px] text-slate-500 mt-0.5 truncate font-normal">
                     {qa.desc}
                   </p>
                 </div>
                 <Ico
                   n="chevron"
-                  c="w-5 h-5 text-slate-400 group-hover:text-[#008080] group-hover:translate-x-1.5 transition-all shrink-0"
+                  c="w-4 h-4 text-slate-400 group-hover:text-[#008080] group-hover:translate-x-1 transition-all shrink-0"
                 />
               </button>
             ))}
           </div>
         </GCard>
       </div>
+
+      {/* Modal: Create Amenity from Dashboard */}
+      <AmenityFormModal
+        isOpen={isAmenityModalOpen}
+        onClose={() => setIsAmenityModalOpen(false)}
+        onSave={handleSaveAmenity}
+      />
     </div>
   )
 }
+
 export default AdminDashboard

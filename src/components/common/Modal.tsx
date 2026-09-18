@@ -17,7 +17,7 @@ export function Modal({
   title,
   subtitle,
   children,
-  maxWidth = 'max-w-lg',
+  maxWidth = 'max-w-xl',
 }: ModalProps) {
   const [mounted, setMounted] = useState(false)
 
@@ -37,16 +37,16 @@ export function Modal({
     window.addEventListener('keydown', handleKeyDown)
 
     return () => {
-      document.body.style.overflow = originalOverflow
+      document.body.style.overflow = originalOverflow || 'unset'
       window.removeEventListener('keydown', handleKeyDown)
     }
   }, [isOpen, onClose])
 
-  if (!isOpen || !mounted) return null
+  if (!isOpen || !mounted || typeof document === 'undefined') return null
 
-  const modalNode = (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[9999] flex items-center justify-center p-3.5 sm:p-6 overflow-y-auto"
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
       role="dialog"
       aria-modal="true"
     >
@@ -91,10 +91,9 @@ export function Modal({
           {children}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
-
-  return createPortal(modalNode, document.body)
 }
 
 export default Modal

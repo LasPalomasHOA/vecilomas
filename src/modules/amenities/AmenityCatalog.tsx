@@ -3,38 +3,57 @@ import type { Amenity } from '@/types/amenities'
 import { BRAND_COLORS } from '@/types'
 import { useData } from '@/context/DataContext'
 import Modal from '@/components/common/Modal'
-import Btn from '@/components/common/Button'
 import Ico from '@/components/common/Icons'
 import BookingRulesModal from '@/modules/amenities/BookingRulesModal'
+import AmenityFormModal from '@/modules/amenities/AmenityFormModal'
 
 interface AmenityCatalogProps {
   currentUnit?: string
   currentResidentName?: string
   onBookingSuccess?: () => void
+  isAdmin?: boolean
 }
 
 export function AmenityCatalog({
   currentUnit = 'A-101',
   currentResidentName = 'Carlos Mendoza Ruiz',
   onBookingSuccess,
+  isAdmin = false,
 }: AmenityCatalogProps) {
-  const { amenities, addBooking, residents } = useData()
+  const {
+    amenities,
+    addBooking,
+    residents,
+    addAmenity,
+    updateAmenity,
+    deleteAmenity,
+    toggleAmenityAvailability,
+  } = useData()
+
   const [selectedAmenityForRules, setSelectedAmenityForRules] = useState<Amenity | null>(null)
   const [bookingAmenity, setBookingAmenity] = useState<Amenity | null>(null)
   const [step, setStep] = useState<1 | 2 | 3>(1)
-  const [successToast, setSuccessToast] = useState<string | null>(null)
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false)
+  const [editingAmenity, setEditingAmenity] = useState<Amenity | null>(null)
+  const [deletingAmenity, setDeletingAmenity] = useState<Amenity | null>(null)
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
 
   // Booking Form State
   const [form, setForm] = useState({
     resident: currentResidentName,
     unit: currentUnit,
-    date: '2026-09-08',
+    date: new Date().toISOString().split('T')[0],
     startTime: '16:00',
     endTime: '20:00',
     guests: 10,
     specialRequests: '',
     acceptedRules: true,
   })
+
+  function showToast(msg: string) {
+    setToastMessage(msg)
+    setTimeout(() => setToastMessage(null), 3500)
+  }
 
   function handleOpenBooking(a: Amenity) {
     setBookingAmenity(a)
@@ -67,17 +86,66 @@ export function AmenityCatalog({
 
     const name = bookingAmenity.name
     setBookingAmenity(null)
-    setSuccessToast(`¡Reservación para "${name}" enviada exitosamente! Revisa tu pase en "Mis Reservaciones".`)
-    setTimeout(() => setSuccessToast(null), 4500)
+    showToast(`¡Reservación para "${name}" enviada exitosamente! Revisa tu pase en "Mis Reservaciones".`)
     if (onBookingSuccess) onBookingSuccess()
+  }
+
+  function handleOpenCreate() {
+    setEditingAmenity(null)
+    setIsFormModalOpen(true)
+  }
+
+  function handleOpenEdit(a: Amenity) {
+    setEditingAmenity(a)
+    setIsFormModalOpen(true)
+  }
+
+  function handleSaveAmenity(data: Omit<Amenity, 'id'> | Amenity) {
+    if ('id' in data) {
+      updateAmenity(data as Amenity)
+      showToast(`¡Amenidad "${data.name}" actualizada con éxito!`)
+    } else {
+      addAmenity(data)
+      showToast(`¡Nueva amenidad "${data.name}" registrada con éxito!`)
+    }
+  }
+
+  function handleDeleteConfirm() {
+    if (!deletingAmenity) return
+    const name = deletingAmenity.name
+    deleteAmenity(deletingAmenity.id)
+    setDeletingAmenity(null)
+    showToast(`Amenidad "${name}" eliminada del catálogo.`)
   }
 
   return (
     <div className="space-y-6">
-      {successToast && (
-        <div className="p-4 rounded-2xl bg-teal-50 border border-teal-200 text-teal-900 text-xs sm:text-sm font-semibold flex items-center gap-3 animate-fade-in shadow-xs">
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="p-4 rounded-2xl bg-teal-50 border border-teal-200 text-teal-900 text-xs sm:text-sm font-bold flex items-center gap-3 animate-fade-in shadow-xs">
           <Ico n="check" c="w-5 h-5 text-teal-600 shrink-0" />
-          <span>{successToast}</span>
+          <span>{toastMessage}</span>
+        </div>
+      )}
+
+      {/* Admin Action Bar */}
+      {isAdmin && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
+          <div>
+            <h3 className="font-display font-bold text-slate-900 text-base">
+              Catálogo de Espacios y Áreas Comunes
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Administra las amenidades, cuotas de uso por evento, horarios y disponibilidad.
+            </p>
+          </div>
+          <button
+            onClick={handleOpenCreate}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#008080] hover:bg-[#006666] text-white font-bold text-xs shadow-xs transition-colors cursor-pointer shrink-0"
+          >
+            <Ico n="plus" c="w-4 h-4" />
+            <span>+ Nueva Amenidad</span>
+          </button>
         </div>
       )}
 
@@ -198,35 +266,108 @@ export function AmenityCatalog({
               )}
 
               {/* Action Buttons */}
-              <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
-                <button
-                  type="button"
-                  onClick={() => setSelectedAmenityForRules(a)}
-                  className="px-3.5 py-2 rounded-xl text-xs font-bold border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer whitespace-nowrap shrink-0"
-                >
-                  Reglamento
-                </button>
-                <button
-                  type="button"
-                  disabled={!a.available}
-                  onClick={() => handleOpenBooking(a)}
-                  className="flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white transition-all shadow-[0_4px_14px_rgba(0,128,128,0.22)] hover:brightness-110 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap justify-center flex items-center gap-1.5"
-                  style={
-                    a.available
-                      ? {
-                          background: `linear-gradient(135deg, ${BRAND_COLORS.primary}, ${BRAND_COLORS.primaryDark})`,
-                        }
-                      : { backgroundColor: '#f1f5f9', color: '#94a3b8' }
-                  }
-                >
-                  <Ico n="calendar" c="w-4 h-4" />
-                  <span>{a.available ? 'Apartar Espacio' : 'Fuera de Servicio'}</span>
-                </button>
+              <div className="pt-3 border-t border-slate-100 space-y-2">
+                {isAdmin ? (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEdit(a)}
+                      className="flex-1 py-1.5 px-2 rounded-xl text-xs font-bold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors cursor-pointer text-center"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleAmenityAvailability(a.id)}
+                      className={`py-1.5 px-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer whitespace-nowrap ${
+                        a.available
+                          ? 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
+                          : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
+                      }`}
+                    >
+                      {a.available ? 'Pausar' : 'Activar'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeletingAmenity(a)}
+                      className="py-1.5 px-2 rounded-xl text-xs font-bold text-red-600 hover:bg-red-50 border border-red-200 transition-colors cursor-pointer"
+                      title="Eliminar amenidad"
+                    >
+                      <Ico n="x" c="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAmenityForRules(a)}
+                      className="px-3.5 py-2 rounded-xl text-xs font-bold border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                    >
+                      Reglamento
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!a.available}
+                      onClick={() => handleOpenBooking(a)}
+                      className="flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white transition-all shadow-[0_4px_14px_rgba(0,128,128,0.22)] hover:brightness-110 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap justify-center flex items-center gap-1.5"
+                      style={
+                        a.available
+                          ? {
+                              background: `linear-gradient(135deg, ${BRAND_COLORS.primary}, ${BRAND_COLORS.primaryDark})`,
+                            }
+                          : { backgroundColor: '#f1f5f9', color: '#94a3b8' }
+                      }
+                    >
+                      <Ico n="calendar" c="w-4 h-4" />
+                      <span>{a.available ? 'Apartar Espacio' : 'Fuera de Servicio'}</span>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
         ))}
       </div>
+
+      {/* Amenity Create / Edit Modal (Admin) */}
+      <AmenityFormModal
+        isOpen={isFormModalOpen}
+        onClose={() => setIsFormModalOpen(false)}
+        onSave={handleSaveAmenity}
+        editingAmenity={editingAmenity}
+      />
+
+      {/* Delete Confirmation Modal (Admin) */}
+      {deletingAmenity && (
+        <Modal
+          isOpen={true}
+          onClose={() => setDeletingAmenity(null)}
+          title="Eliminar Amenidad"
+          subtitle={`¿Estás seguro de que deseas eliminar "${deletingAmenity.name}" del catálogo?`}
+        >
+          <div className="space-y-4">
+            <p className="text-xs text-slate-600">
+              Esta acción eliminará el espacio del catálogo y no estará disponible para nuevas reservaciones.
+            </p>
+            <div className="flex gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={handleDeleteConfirm}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors cursor-pointer"
+              >
+                Sí, Eliminar Amenidad
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeletingAmenity(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </Modal>
+      )}
 
       {/* Rules Modal */}
       <BookingRulesModal
