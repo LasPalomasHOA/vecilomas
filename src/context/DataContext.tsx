@@ -32,6 +32,10 @@ interface DataContextType {
 
   // Module B: Amenities
   amenities: Amenity[]
+  addAmenity: (a: Omit<Amenity, 'id'>) => void
+  updateAmenity: (a: Amenity) => void
+  deleteAmenity: (id: number) => void
+  toggleAmenityAvailability: (id: number) => void
   bookings: Booking[]
   addBooking: (b: Omit<Booking, 'id' | 'status'>) => void
   updateBookingStatus: (id: number, status: BookingStatus) => void
@@ -62,7 +66,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [userPermissions, setUserPermissions] = useState<UserRolePermission[]>(INITIAL_PERMISSIONS_USERS)
 
   // State B: Amenities
-  const [amenities] = useState<Amenity[]>(INITIAL_AMENITIES)
+  const [amenities, setAmenities] = useState<Amenity[]>(INITIAL_AMENITIES)
   const [bookings, setBookings] = useState<Booking[]>(INITIAL_BOOKINGS)
 
   // State C: Access
@@ -109,6 +113,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
   // ── Handlers B ─────────────────────────────────────────────────────────────
+  function addAmenity(a: Omit<Amenity, 'id'>) {
+    const newId = amenities.length > 0 ? Math.max(...amenities.map(x => x.id)) + 1 : 1
+    setAmenities(prev => [...prev, { id: newId, ...a }])
+  }
+
+  function updateAmenity(updated: Amenity) {
+    setAmenities(prev => prev.map(a => (a.id === updated.id ? updated : a)))
+  }
+
+  function deleteAmenity(id: number) {
+    setAmenities(prev => prev.filter(a => a.id !== id))
+  }
+
+  function toggleAmenityAvailability(id: number) {
+    setAmenities(prev =>
+      prev.map(a => (a.id === id ? { ...a, available: !a.available } : a))
+    )
+  }
+
   function addBooking(b: Omit<Booking, 'id' | 'status'>) {
     const newId = bookings.length > 0 ? Math.max(...bookings.map(x => x.id)) + 1 : 1
     const newBooking: Booking = { id: newId, status: 'Pendiente', ...b }
@@ -134,85 +157,63 @@ export function DataProvider({ children }: { children: ReactNode }) {
       unit,
       validDate: date,
       validTime: time,
-      visitType: type,
       status: 'Activo',
-      createdAt: new Date().toISOString(),
+      visitType: type,
+      vehiclePlate: '',
     }
     setAccessPasses(prev => [newPass, ...prev])
     return newPass
   }
 
   function validateQRCode(code: string): QRValidationResult {
-    const trimmed = code.trim().toUpperCase()
-    const found = accessPasses.find(p => p.code.toUpperCase() === trimmed)
-    if (found) {
-      if (found.status === 'Expirado') {
-        return { valid: false, pass: found, message: 'El pase de acceso ha expirado.' }
-      }
-      return { valid: true, pass: found, message: 'Pase digital válido y verificado.' }
-    }
-    // Fallback recognition for seed patterns starting with VCN
-    if (trimmed.startsWith('VCN-')) {
-      const parts = trimmed.split('-')
-      const mockPass: AccessPass = {
-        id: 'PASS-LIVE',
-        code: trimmed,
-        visitor: parts[1] ? `Visitante (${parts[1]})` : 'Invitado Registrado',
-        host: 'Residente Anfitrión',
-        unit: parts[2] || 'A-101',
-        validDate: 'Hoy',
-        validTime: 'Acceso Inmediato',
-        visitType: 'Visita',
-        status: 'Activo',
-        createdAt: new Date().toISOString(),
-      }
-      return { valid: true, pass: mockPass, message: 'Código QR verificado con éxito.' }
-    }
-    return { valid: false, message: 'Código no encontrado en el sistema o inválido.' }
+    const pass = accessPasses.find(p => p.code.toUpperCase() === code.trim().toUpperCase())
+    if (!pass) return { valid: false, message: 'Código QR no encontrado en el sistema.' }
+    if (pass.status === 'Expirado') return { valid: false, message: 'Este pase de acceso ha expirado.', pass }
+    if (pass.status === 'Usado') return { valid: false, message: 'Este pase ya fue utilizado previamente.', pass }
+    return { valid: true, message: `Pase de acceso válido para la unidad ${pass.unit}.`, pass }
   }
 
-  function checkInVisit({ visitor, host, unit, type = 'Visita', plate }: { visitor: string; host: string; unit: string; type?: VisitType; plate?: string }) {
-    const nowTime = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
-    const newId = visits.length > 0 ? Math.max(...visits.map(x => x.id)) + 1 : 1
+  function checkInVisit(passCodeOrManual: { visitor: string; host: string; unit: string; type?: VisitType; plate?: string }) {
+    const now = new Date()
+    const dateStr = now.toISOString().split('T')[0]
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
     const newVisit: VisitRecord = {
-      id: newId,
-      visitor,
-      host,
-      unit,
-      entry: nowTime,
-      exit: null,
-      date: 'Hoy',
-      status: 'En Instalaciones',
-      type,
-      plate,
+      id: visits.length > 0 ? Math.max(...visits.map(v => v.id)) + 1 : 1,
+      visitor: passCodeOrManual.visitor,
+      unit: passCodeOrManual.unit,
+      host: passCodeOrManual.host,
+      type: passCodeOrManual.type || 'Visita',
+      plate: passCodeOrManual.plate || '---',
+      entryDate: dateStr,
+      entryTime: timeStr,
+      status: 'En Sitio',
     }
     setVisits(prev => [newVisit, ...prev])
   }
 
   function checkOutVisit(visitId: number) {
-    const nowTime = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+    const now = new Date()
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
     setVisits(prev =>
-      prev.map(v => (v.id === visitId ? { ...v, exit: nowTime, status: 'Completada' as const } : v))
+      prev.map(v => (v.id === visitId ? { ...v, exitTime: timeStr, status: 'Completada' as const } : v))
     )
   }
 
   // ── Handlers D ─────────────────────────────────────────────────────────────
-  function registerFeePayment(feeId: string, method: string = 'Transferencia SPEI') {
-    const today = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })
+  function registerFeePayment(id: string, method: string = 'Transferencia SPEI') {
+    const today = new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
     setFees(prev =>
-      prev.map(f =>
-        f.id === feeId ? { ...f, status: 'Pagada' as const, date: today, paymentMethod: method } : f
-      )
+      prev.map(f => (f.id === id ? { ...f, status: 'Pagada', date: today, paymentMethod: method } : f))
     )
   }
 
   function addTicket(t: Omit<MaintenanceTicket, 'id' | 'date' | 'status'>) {
     const today = new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
-    const newId = `TKT-${Math.floor(2025 + Math.random() * 50)}`
+    const newId = `TCK-00${tickets.length + 1}`
     const newTicket: MaintenanceTicket = {
       id: newId,
       date: today,
-      status: 'Pendiente',
+      status: 'Abierto',
       ...t,
     }
     setTickets(prev => [newTicket, ...prev])
@@ -242,6 +243,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         userPermissions,
         addUserPermission,
         amenities,
+        addAmenity,
+        updateAmenity,
+        deleteAmenity,
+        toggleAmenityAvailability,
         bookings,
         addBooking,
         updateBookingStatus,
