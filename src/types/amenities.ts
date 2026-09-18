@@ -1,12 +1,15 @@
 export interface Amenity {
   id: number
   name: string
+  subtitle?: string
   capacity: number
   rate: string
   costAmount: number
   hours: string
   available: boolean
+  maintenanceNote?: string
   img: string
+  features: string[]
   rules: string[]
   deposit?: string
   maxHoursPerBooking?: number
@@ -25,5 +28,10 @@ export interface Booking {
   status: BookingStatus
   guests: number
   cost?: string
+  deposit?: string
   createdAt?: string
+  qrPassCode?: string
+  rejectionReason?: string
+  specialRequests?: string
 }
+

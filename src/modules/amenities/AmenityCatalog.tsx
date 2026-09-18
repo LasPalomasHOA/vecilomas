@@ -2,7 +2,6 @@ import { useState } from 'react'
 import type { Amenity } from '@/types/amenities'
 import { BRAND_COLORS } from '@/types'
 import { useData } from '@/context/DataContext'
-import { GLASS_STYLES } from '@/components/common/Card'
 import Modal from '@/components/common/Modal'
 import Btn from '@/components/common/Button'
 import Ico from '@/components/common/Icons'
@@ -16,15 +15,16 @@ interface AmenityCatalogProps {
 
 export function AmenityCatalog({
   currentUnit = 'A-101',
-  currentResidentName = 'Carlos Mendoza',
+  currentResidentName = 'Carlos Mendoza Ruiz',
   onBookingSuccess,
 }: AmenityCatalogProps) {
   const { amenities, addBooking, residents } = useData()
   const [selectedAmenityForRules, setSelectedAmenityForRules] = useState<Amenity | null>(null)
-  const [selectedAmenityForBooking, setSelectedAmenityForBooking] = useState<Amenity | null>(null)
+  const [bookingAmenity, setBookingAmenity] = useState<Amenity | null>(null)
+  const [step, setStep] = useState<1 | 2 | 3>(1)
   const [successToast, setSuccessToast] = useState<string | null>(null)
 
-  // Booking Form
+  // Booking Form State
   const [form, setForm] = useState({
     resident: currentResidentName,
     unit: currentUnit,
@@ -32,115 +32,177 @@ export function AmenityCatalog({
     startTime: '16:00',
     endTime: '20:00',
     guests: 10,
+    specialRequests: '',
+    acceptedRules: true,
   })
 
   function handleOpenBooking(a: Amenity) {
-    setSelectedAmenityForBooking(a)
-    setForm(prev => ({ ...prev, guests: Math.min(prev.guests, a.capacity) }))
+    setBookingAmenity(a)
+    setStep(1)
+    setForm(prev => ({
+      ...prev,
+      resident: currentResidentName,
+      unit: currentUnit,
+      guests: Math.min(10, a.capacity),
+      acceptedRules: true,
+    }))
   }
 
   function handleConfirmBooking(e: React.FormEvent) {
     e.preventDefault()
-    if (!selectedAmenityForBooking) return
+    if (!bookingAmenity) return
 
     addBooking({
-      amenityId: selectedAmenityForBooking.id,
-      amenity: selectedAmenityForBooking.name,
+      amenityId: bookingAmenity.id,
+      amenity: bookingAmenity.name,
       resident: form.resident,
       unit: form.unit,
       date: form.date,
       time: `${form.startTime} – ${form.endTime}`,
       guests: Number(form.guests),
-      cost: selectedAmenityForBooking.rate,
+      cost: bookingAmenity.rate,
+      deposit: bookingAmenity.deposit || 'No aplica',
+      specialRequests: form.specialRequests || undefined,
     })
 
-    const amenityName = selectedAmenityForBooking.name
-    setSelectedAmenityForBooking(null)
-    setSuccessToast(`¡Solicitud de reservación para "${amenityName}" registrada con éxito!`)
-    setTimeout(() => setSuccessToast(null), 4000)
+    const name = bookingAmenity.name
+    setBookingAmenity(null)
+    setSuccessToast(`¡Reservación para "${name}" enviada exitosamente! Revisa tu pase en "Mis Reservaciones".`)
+    setTimeout(() => setSuccessToast(null), 4500)
     if (onBookingSuccess) onBookingSuccess()
   }
 
   return (
     <div className="space-y-6">
       {successToast && (
-        <div className="p-4 rounded-2xl bg-[#e6f2f0] border border-[#7eb0a6] text-[#003333] text-xs sm:text-sm font-bold flex items-center gap-3 animate-fade-in shadow-md">
-          <Ico n="check" c="w-5 h-5 text-[#008080]" />
-          {successToast}
+        <div className="p-4 rounded-2xl bg-teal-50 border border-teal-200 text-teal-900 text-xs sm:text-sm font-semibold flex items-center gap-3 animate-fade-in shadow-xs">
+          <Ico n="check" c="w-5 h-5 text-teal-600 shrink-0" />
+          <span>{successToast}</span>
         </div>
       )}
 
+      {/* Header Intro */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+        <div>
+          <h3 className="font-display font-bold text-slate-900 text-base">Espacios Disponibles para Residentes</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Explora amenidades de primera clase, revisa equipamiento, capacidad y reserva al instante.</p>
+        </div>
+        <span className="text-xs font-mono font-bold text-teal-700 bg-teal-50 px-3 py-1 rounded-xl border border-teal-100">
+          {amenities.filter(a => a.available).length} de {amenities.length} Activas
+        </span>
+      </div>
+
       {/* Catalog Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {amenities.map(a => (
           <div
             key={a.id}
-            className={`rounded-2xl overflow-hidden transition-all duration-200 bg-white border border-teal-950/[0.08] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.95),0_1px_3px_rgba(0,51,51,0.03),0_6px_20px_rgba(0,51,51,0.04)] hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_12px_30px_rgba(0,51,51,0.08)] hover:border-teal-500/30 hover:-translate-y-0.5 flex flex-col justify-between group ${
-              !a.available ? 'opacity-75' : ''
+            className={`rounded-2xl overflow-hidden transition-all duration-300 bg-white border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.02),0_4px_16px_rgba(0,0,0,0.03)] hover:shadow-[0_12px_32px_rgba(0,128,128,0.1)] hover:border-teal-500/40 hover:-translate-y-1 flex flex-col justify-between group ${
+              !a.available ? 'opacity-80' : ''
             }`}
           >
             {/* Image Box */}
-            <div className="h-48 relative overflow-hidden">
+            <div className="h-52 relative overflow-hidden">
               <img
                 src={a.img}
                 alt={a.name}
-                className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-108"
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
               />
               <div
                 className="absolute inset-0"
                 style={{
                   background:
-                    'linear-gradient(to top, rgba(0, 35, 35, 0.92) 0%, rgba(0, 51, 51, 0.3) 60%, transparent 100%)',
+                    'linear-gradient(to top, rgba(15, 23, 42, 0.92) 0%, rgba(15, 23, 42, 0.3) 55%, transparent 100%)',
                 }}
               />
 
               {/* Status Pill */}
               <span
-                className="absolute top-3 right-3 text-xs font-bold px-3 py-1 rounded-full text-white backdrop-blur-md border border-white/25 shadow-xs"
-                style={{
-                  backgroundColor: a.available ? 'rgba(0, 128, 128, 0.9)' : 'rgba(100, 116, 139, 0.9)',
-                }}
+                className={`absolute top-3.5 right-3.5 text-[11px] font-bold px-3 py-1 rounded-full text-white backdrop-blur-md border shadow-xs ${
+                  a.available
+                    ? 'bg-teal-600/90 border-teal-400/40 text-teal-50'
+                    : 'bg-amber-600/90 border-amber-400/40 text-amber-50'
+                }`}
               >
-                {a.available ? '✓ Disponible' : 'Mantenimiento'}
+                {a.available ? '✓ Disponible' : '⚠️ En Mantenimiento'}
               </span>
 
-              <div className="absolute bottom-3 left-4 right-4">
-                <p className="text-[10px] font-mono text-teal-300 uppercase tracking-widest font-bold">
-                  ✦ ÁREA EXCLUSIVA RESIDENCIAL
-                </p>
-                <h4 className="font-display font-black text-white text-lg leading-tight drop-shadow-xs">
+              <div className="absolute bottom-3.5 left-4 right-4">
+                <span className="text-[10px] font-mono uppercase tracking-widest font-bold text-teal-300">
+                  ✦ ÁREA RESIDENCIAL EXCLUSIVA
+                </span>
+                <h4 className="font-display font-extrabold text-white text-lg leading-tight drop-shadow-sm mt-0.5">
                   {a.name}
                 </h4>
+                {a.subtitle && (
+                  <p className="text-xs text-white/80 line-clamp-1 mt-0.5 font-normal">
+                    {a.subtitle}
+                  </p>
+                )}
               </div>
             </div>
 
             {/* Info details */}
-            <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between">
-              <div className="space-y-2 text-xs mb-4">
-                <div className="flex justify-between items-center py-1.5 border-b border-teal-950/[0.05] gap-2">
-                  <span className="text-slate-500 font-medium whitespace-nowrap">Capacidad máxima</span>
-                  <span className="font-bold text-slate-800 bg-slate-100/80 px-2.5 py-0.5 rounded-lg whitespace-nowrap shrink-0 border border-slate-200/60">
-                    👥 {a.capacity} personas
+            <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-4">
+              {/* Features Chips */}
+              {a.features && a.features.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {a.features.slice(0, 3).map((f, i) => (
+                    <span
+                      key={i}
+                      className="text-[11px] font-medium text-slate-600 bg-slate-100/90 px-2.5 py-0.5 rounded-lg border border-slate-200/50"
+                    >
+                      {f}
+                    </span>
+                  ))}
+                  {a.features.length > 3 && (
+                    <span className="text-[11px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-lg">
+                      +{a.features.length - 3} más
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Key Specs */}
+              <div className="space-y-2 text-xs bg-slate-50/70 p-3 rounded-xl border border-slate-100">
+                <div className="flex justify-between items-center py-0.5">
+                  <span className="text-slate-500 font-medium">Capacidad máxima:</span>
+                  <span className="font-bold text-slate-800 bg-white px-2.5 py-0.5 rounded-md border border-slate-200/60 shadow-2xs">
+                    👥 Hasta {a.capacity} pers.
                   </span>
                 </div>
-                <div className="flex justify-between items-center py-1.5 border-b border-teal-950/[0.05] gap-2">
-                  <span className="text-slate-500 font-medium whitespace-nowrap">Horario habilitado</span>
-                  <span className="font-mono font-bold text-slate-700 whitespace-nowrap shrink-0">⏰ {a.hours}</span>
+                <div className="flex justify-between items-center py-0.5">
+                  <span className="text-slate-500 font-medium">Horario de servicio:</span>
+                  <span className="font-mono font-semibold text-slate-700">⏰ {a.hours}</span>
                 </div>
-                <div className="flex justify-between items-center py-1.5 gap-2">
-                  <span className="text-slate-500 font-medium whitespace-nowrap">Cuota de reservación</span>
-                  <span className="font-extrabold text-[#008080] text-sm whitespace-nowrap shrink-0 bg-teal-50 px-2.5 py-0.5 rounded-lg border border-teal-200/70 shadow-2xs">
+                <div className="flex justify-between items-center py-0.5 pt-1 border-t border-slate-200/60">
+                  <span className="text-slate-500 font-medium">Cuota de reservación:</span>
+                  <span className="font-bold text-teal-800 text-xs sm:text-sm bg-teal-50 px-2 py-0.5 rounded-md border border-teal-100">
                     {a.rate}
                   </span>
                 </div>
+                {a.deposit && a.deposit !== 'No aplica' && (
+                  <div className="flex justify-between items-center py-0.5 text-[11px] text-slate-400">
+                    <span>Depósito en garantía:</span>
+                    <span className="font-medium text-slate-600">{a.deposit}</span>
+                  </div>
+                )}
               </div>
 
+              {/* Maintenance note if any */}
+              {!a.available && a.maintenanceNote && (
+                <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 font-medium flex items-center gap-2">
+                  <Ico n="info" c="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>{a.maintenanceNote}</span>
+                </div>
+              )}
+
               {/* Action Buttons */}
-              <div className="flex items-center gap-2 pt-3 border-t border-teal-950/[0.06]">
+              <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setSelectedAmenityForRules(a)}
-                  className="px-3.5 py-2 rounded-xl text-xs font-bold border border-slate-200/80 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                  className="px-3.5 py-2 rounded-xl text-xs font-bold border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer whitespace-nowrap shrink-0"
                 >
                   Reglamento
                 </button>
@@ -148,7 +210,7 @@ export function AmenityCatalog({
                   type="button"
                   disabled={!a.available}
                   onClick={() => handleOpenBooking(a)}
-                  className="flex-1 py-2 rounded-xl text-xs sm:text-sm font-bold text-white transition-all shadow-[0_4px_14px_rgba(0,128,128,0.22)] hover:brightness-110 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap justify-center"
+                  className="flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white transition-all shadow-[0_4px_14px_rgba(0,128,128,0.22)] hover:brightness-110 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap justify-center flex items-center gap-1.5"
                   style={
                     a.available
                       ? {
@@ -157,7 +219,8 @@ export function AmenityCatalog({
                       : { backgroundColor: '#f1f5f9', color: '#94a3b8' }
                   }
                 >
-                  {a.available ? 'Apartar Espacio' : 'No Disponible'}
+                  <Ico n="calendar" c="w-4 h-4" />
+                  <span>{a.available ? 'Apartar Espacio' : 'Fuera de Servicio'}</span>
                 </button>
               </div>
             </div>
@@ -171,127 +234,272 @@ export function AmenityCatalog({
         onClose={() => setSelectedAmenityForRules(null)}
       />
 
-      {/* Booking Form Modal */}
+      {/* Multi-Step Booking Wizard Modal */}
       <Modal
-        isOpen={!!selectedAmenityForBooking}
-        onClose={() => setSelectedAmenityForBooking(null)}
-        title={selectedAmenityForBooking ? `Reservar ${selectedAmenityForBooking.name}` : 'Reservar'}
-        subtitle="Ingresa la fecha, rango de horas y número de invitados estimados."
+        isOpen={!!bookingAmenity}
+        onClose={() => setBookingAmenity(null)}
+        title={bookingAmenity ? `Reservación: ${bookingAmenity.name}` : 'Reservar Espacio'}
+        subtitle={`Paso ${step} de 3 — ${step === 1 ? 'Fecha y Horario' : step === 2 ? 'Detalles e Invitados' : 'Confirmación de Apartado'}`}
       >
-        {selectedAmenityForBooking && (
+        {bookingAmenity && (
           <form onSubmit={handleConfirmBooking} className="space-y-4">
-            <div className="p-4 rounded-2xl bg-[#e6f2f0] border border-[#7eb0a6]/40 flex items-center justify-between text-xs">
-              <div>
-                <p className="text-slate-400 font-mono uppercase font-bold text-[10px]">Cuota requerida:</p>
-                <p className="font-extrabold text-[#003333] text-base mt-0.5">{selectedAmenityForBooking.rate}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-slate-400 font-mono uppercase font-bold text-[10px]">Capacidad:</p>
-                <p className="font-bold text-slate-800 text-sm mt-0.5">Hasta {selectedAmenityForBooking.capacity} personas</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-mono uppercase tracking-wider mb-1 text-[#004c4c] font-bold">
-                  Unidad
-                </label>
-                <select
-                  value={form.unit}
-                  onChange={e => {
-                    const u = e.target.value
-                    const res = residents.find(r => r.unit === u)
-                    setForm(f => ({ ...f, unit: u, resident: res ? res.name : f.resident }))
+            {/* Step Progress Indicators */}
+            <div className="grid grid-cols-3 gap-2 pb-1">
+              {[
+                { s: 1, label: '1. Fecha y Hora', desc: 'Horario' },
+                { s: 2, label: '2. Invitados', desc: 'Aforo' },
+                { s: 3, label: '3. Resumen', desc: 'Pase QR' },
+              ].map(st => (
+                <button
+                  type="button"
+                  key={st.s}
+                  onClick={() => {
+                    if (st.s < step) setStep(st.s as 1 | 2 | 3)
                   }}
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-white border border-[#7eb0a6]/50 font-medium"
+                  disabled={st.s > step}
+                  className={`text-center py-2 px-1 rounded-xl text-xs font-semibold transition-all duration-200 ${
+                    step === st.s
+                      ? 'bg-teal-700 text-white shadow-xs'
+                      : step > st.s
+                      ? 'bg-teal-50 text-teal-800 border border-teal-200/80 cursor-pointer hover:bg-teal-100/70'
+                      : 'text-slate-400 bg-slate-50/80 border border-slate-100 cursor-not-allowed'
+                  }`}
                 >
-                  {residents.map(r => (
-                    <option key={r.id} value={r.unit}>
-                      {r.unit} — {r.name.split(' ')[0]}
-                    </option>
-                  ))}
-                </select>
+                  <span className="block truncate">{st.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* STEP 1: Date & Time */}
+            {step === 1 && (
+              <div className="space-y-3.5 animate-fade-in">
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-teal-50/80 via-slate-50 to-teal-50/80 border border-teal-100 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Cuota requerida:</span>
+                    <p className="font-bold text-teal-800 text-sm mt-0.5">{bookingAmenity.rate}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Horario permitido:</span>
+                    <p className="font-semibold text-slate-700 text-xs mt-0.5 font-mono">{bookingAmenity.hours}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-700">
+                    Fecha de la Reservación
+                  </label>
+                  <div className="relative">
+                    <input
+                      required
+                      type="date"
+                      value={form.date}
+                      onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/70 border border-slate-200 focus:bg-white focus:border-teal-600 focus:ring-2 focus:ring-teal-500/20 focus:outline-none transition-all font-mono font-semibold text-slate-800"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-700">
+                      Hora de Inicio
+                    </label>
+                    <input
+                      required
+                      type="time"
+                      value={form.startTime}
+                      onChange={e => setForm(f => ({ ...f, startTime: e.target.value }))}
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/70 border border-slate-200 focus:bg-white focus:border-teal-600 focus:ring-2 focus:ring-teal-500/20 focus:outline-none transition-all font-mono font-semibold text-slate-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-700">
+                      Hora de Término
+                    </label>
+                    <input
+                      required
+                      type="time"
+                      value={form.endTime}
+                      onChange={e => setForm(f => ({ ...f, endTime: e.target.value }))}
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/70 border border-slate-200 focus:bg-white focus:border-teal-600 focus:ring-2 focus:ring-teal-500/20 focus:outline-none transition-all font-mono font-semibold text-slate-800"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep(2)}
+                    className="w-full py-2.5 rounded-xl font-bold text-sm bg-teal-700 hover:bg-teal-800 active:scale-[0.99] text-white transition-all duration-150 shadow-md cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <span>Continuar al Paso 2</span>
+                    <Ico n="chevron" c="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-mono uppercase tracking-wider mb-1 text-[#004c4c] font-bold">
-                  Solicitante
+            )}
+
+            {/* STEP 2: Guests & Requests */}
+            {step === 2 && (
+              <div className="space-y-3.5 animate-fade-in">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-700">
+                      Unidad / Depto
+                    </label>
+                    <select
+                      value={form.unit}
+                      onChange={e => {
+                        const u = e.target.value
+                        const res = residents.find(r => r.unit === u)
+                        setForm(f => ({ ...f, unit: u, resident: res ? res.name : f.resident }))
+                      }}
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/70 border border-slate-200 font-semibold text-slate-800 focus:bg-white focus:border-teal-600 focus:ring-2 focus:ring-teal-500/20 focus:outline-none cursor-pointer"
+                    >
+                      {residents.map(r => (
+                        <option key={r.id} value={r.unit}>
+                          {r.unit} — {r.name.split(' ')[0]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-700">
+                      Nombre del Titular
+                    </label>
+                    <input
+                      required
+                      value={form.resident}
+                      onChange={e => setForm(f => ({ ...f, resident: e.target.value }))}
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/70 border border-slate-200 font-semibold text-slate-800 focus:bg-white focus:border-teal-600 focus:ring-2 focus:ring-teal-500/20 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-slate-700">
+                      Número Estimado de Invitados
+                    </label>
+                    <span className="text-xs font-bold text-teal-800 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-100">
+                      Aforo máx. {bookingAmenity.capacity} pers.
+                    </span>
+                  </div>
+                  <input
+                    type="number"
+                    min={1}
+                    max={bookingAmenity.capacity}
+                    value={form.guests}
+                    onChange={e => setForm(f => ({ ...f, guests: Number(e.target.value) }))}
+                    className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/70 border border-slate-200 font-mono font-bold text-slate-800 focus:bg-white focus:border-teal-600 focus:ring-2 focus:ring-teal-500/20 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-700">
+                    Peticiones Especiales / Notas para Caseta (Opcional)
+                  </label>
+                  <input
+                    value={form.specialRequests}
+                    onChange={e => setForm(f => ({ ...f, specialRequests: e.target.value }))}
+                    placeholder="Ej. Ingresará personal de catering o animadores..."
+                    className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/70 border border-slate-200 text-slate-800 focus:bg-white focus:border-teal-600 focus:ring-2 focus:ring-teal-500/20 focus:outline-none"
+                  />
+                </div>
+
+                <label className="flex items-start gap-2.5 p-3 rounded-2xl bg-teal-50/70 border border-teal-200/80 text-xs font-medium text-teal-950 cursor-pointer hover:bg-teal-50 transition-colors">
+                  <input
+                    type="checkbox"
+                    required
+                    checked={form.acceptedRules}
+                    onChange={e => setForm(f => ({ ...f, acceptedRules: e.target.checked }))}
+                    className="rounded text-teal-700 focus:ring-teal-600 w-4 h-4 mt-0.5 cursor-pointer"
+                  />
+                  <span>
+                    He leído y me comprometo a cumplir el <strong>Reglamento de Uso y Convivencia</strong> del espacio.
+                  </span>
                 </label>
-                <input
-                  required
-                  value={form.resident}
-                  onChange={e => setForm(f => ({ ...f, resident: e.target.value }))}
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl"
-                  style={GLASS_STYLES.input}
-                />
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep(1)}
+                    className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                  >
+                    ← Volver
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStep(3)}
+                    className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-teal-700 hover:bg-teal-800 active:scale-[0.99] text-white transition-all duration-150 shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <span>Revisar Resumen</span>
+                    <Ico n="chevron" c="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
-            <div>
-              <label className="block text-xs font-mono uppercase tracking-wider mb-1 text-[#004c4c] font-bold">
-                Fecha del Apartado
-              </label>
-              <input
-                required
-                type="date"
-                value={form.date}
-                onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl font-mono"
-                style={GLASS_STYLES.input}
-              />
-            </div>
+            {/* STEP 3: Summary & Submit */}
+            {step === 3 && (
+              <div className="space-y-3.5 animate-fade-in">
+                <div className="p-4.5 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-teal-950 text-white shadow-xl space-y-3.5 border border-slate-700/50">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="text-[10px] font-mono text-teal-300 uppercase tracking-widest font-bold">
+                        ✦ RESUMEN DE RESERVACIÓN
+                      </span>
+                      <h4 className="font-display font-bold text-lg leading-tight mt-0.5">{bookingAmenity.name}</h4>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-teal-500/20 text-teal-200 border border-teal-400/30">
+                      {bookingAmenity.rate}
+                    </span>
+                  </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-mono uppercase tracking-wider mb-1 text-[#004c4c] font-bold">
-                  Hora de Inicio
-                </label>
-                <input
-                  required
-                  type="time"
-                  value={form.startTime}
-                  onChange={e => setForm(f => ({ ...f, startTime: e.target.value }))}
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl font-mono"
-                  style={GLASS_STYLES.input}
-                />
+                  <div className="grid grid-cols-2 gap-3 text-xs pt-3 border-t border-white/10">
+                    <div>
+                      <span className="text-white/60 text-[10px] uppercase font-bold">Fecha Apartada:</span>
+                      <p className="font-semibold text-white mt-0.5 font-mono">📅 {form.date}</p>
+                    </div>
+                    <div>
+                      <span className="text-white/60 text-[10px] uppercase font-bold">Horario:</span>
+                      <p className="font-semibold text-white mt-0.5 font-mono">⏰ {form.startTime} – {form.endTime}</p>
+                    </div>
+                    <div>
+                      <span className="text-white/60 text-[10px] uppercase font-bold">Titular / Unidad:</span>
+                      <p className="font-semibold text-white mt-0.5">{form.resident} ({form.unit})</p>
+                    </div>
+                    <div>
+                      <span className="text-white/60 text-[10px] uppercase font-bold">Aforo Invitados:</span>
+                      <p className="font-semibold text-white mt-0.5">👥 {form.guests} personas</p>
+                    </div>
+                  </div>
+
+                  {bookingAmenity.deposit && bookingAmenity.deposit !== 'No aplica' && (
+                    <p className="text-[11px] text-amber-200 bg-amber-500/10 p-2.5 rounded-xl border border-amber-400/20 leading-relaxed">
+                      🛡️ Depósito en garantía: <strong>{bookingAmenity.deposit}</strong> (Reembolsable tras el evento)
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep(2)}
+                    className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                  >
+                    ← Modificar
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-teal-700 hover:bg-teal-800 active:scale-[0.99] text-white transition-all duration-150 shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <Ico n="check" c="w-4 h-4" />
+                    <span>Confirmar y Solicitar Apartado</span>
+                  </button>
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-mono uppercase tracking-wider mb-1 text-[#004c4c] font-bold">
-                  Hora de Término
-                </label>
-                <input
-                  required
-                  type="time"
-                  value={form.endTime}
-                  onChange={e => setForm(f => ({ ...f, endTime: e.target.value }))}
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl font-mono"
-                  style={GLASS_STYLES.input}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-mono uppercase tracking-wider mb-1 text-[#004c4c] font-bold">
-                Número de Invitados (Máx. {selectedAmenityForBooking.capacity})
-              </label>
-              <input
-                type="number"
-                min={1}
-                max={selectedAmenityForBooking.capacity}
-                value={form.guests}
-                onChange={e => setForm(f => ({ ...f, guests: Number(e.target.value) }))}
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl font-mono"
-                style={GLASS_STYLES.input}
-              />
-            </div>
-
-            <div className="flex gap-3 pt-3">
-              <Btn type="submit" className="flex-1 font-bold">
-                Confirmar y Agendar
-              </Btn>
-              <Btn variant="ghost" onClick={() => setSelectedAmenityForBooking(null)}>
-                Cancelar
-              </Btn>
-            </div>
+            )}
           </form>
         )}
       </Modal>

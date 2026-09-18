@@ -24,6 +24,7 @@ interface DataContextType {
   notices: Notice[]
   addNotice: (n: Omit<Notice, 'id' | 'date'>) => void
   deleteNotice: (id: number) => void
+  acknowledgeNotice: (noticeId: number, unitOrEmail: string) => void
   documents: CommunityDocument[]
   addDocument: (d: Omit<CommunityDocument, 'id' | 'date'>) => void
   deleteDocument: (id: number) => void
@@ -32,9 +33,10 @@ interface DataContextType {
 
   // Module B: Amenities
   amenities: Amenity[]
+  toggleAmenityMaintenance: (amenityId: number, note?: string) => void
   bookings: Booking[]
   addBooking: (b: Omit<Booking, 'id' | 'status'>) => void
-  updateBookingStatus: (id: number, status: BookingStatus) => void
+  updateBookingStatus: (id: number, status: BookingStatus, rejectionReason?: string) => void
 
   // Module C: Access & Visits
   accessPasses: AccessPass[]
@@ -62,7 +64,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [userPermissions, setUserPermissions] = useState<UserRolePermission[]>(INITIAL_PERMISSIONS_USERS)
 
   // State B: Amenities
-  const [amenities] = useState<Amenity[]>(INITIAL_AMENITIES)
+  const [amenities, setAmenities] = useState<Amenity[]>(INITIAL_AMENITIES)
   const [bookings, setBookings] = useState<Booking[]>(INITIAL_BOOKINGS)
 
   // State C: Access
@@ -86,11 +88,26 @@ export function DataProvider({ children }: { children: ReactNode }) {
   function addNotice(n: Omit<Notice, 'id' | 'date'>) {
     const today = new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
     const newId = notices.length > 0 ? Math.max(...notices.map(x => x.id)) + 1 : 1
-    setNotices(prev => [{ id: newId, date: today, ...n }, ...prev])
+    setNotices(prev => [{ id: newId, date: today, acknowledgments: 0, readBy: [], ...n }, ...prev])
   }
 
   function deleteNotice(id: number) {
     setNotices(prev => prev.filter(n => n.id !== id))
+  }
+
+  function acknowledgeNotice(noticeId: number, unitOrEmail: string) {
+    setNotices(prev =>
+      prev.map(n => {
+        if (n.id !== noticeId) return n
+        const currentReadBy = n.readBy || []
+        if (currentReadBy.includes(unitOrEmail)) return n
+        return {
+          ...n,
+          acknowledgments: (n.acknowledgments || 0) + 1,
+          readBy: [...currentReadBy, unitOrEmail],
+        }
+      })
+    )
   }
 
   function addDocument(d: Omit<CommunityDocument, 'id' | 'date'>) {
@@ -109,14 +126,47 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
   // ── Handlers B ─────────────────────────────────────────────────────────────
+  function toggleAmenityMaintenance(amenityId: number, note?: string) {
+    setAmenities(prev =>
+      prev.map(a =>
+        a.id === amenityId
+          ? {
+              ...a,
+              available: !a.available,
+              maintenanceNote: !a.available ? undefined : note || 'Mantenimiento preventivo programado',
+            }
+          : a
+      )
+    )
+  }
+
   function addBooking(b: Omit<Booking, 'id' | 'status'>) {
     const newId = bookings.length > 0 ? Math.max(...bookings.map(x => x.id)) + 1 : 1
-    const newBooking: Booking = { id: newId, status: 'Pendiente', ...b }
+    const randCode = Math.random().toString(36).substring(2, 6).toUpperCase()
+    const cleanUnit = (b.unit || 'A101').replace(/[^a-zA-Z0-9]/g, '')
+    const qrPassCode = `AMN-${cleanUnit}-${randCode}`
+    const newBooking: Booking = {
+      id: newId,
+      status: 'Pendiente',
+      qrPassCode,
+      createdAt: new Date().toISOString(),
+      ...b,
+    }
     setBookings(prev => [newBooking, ...prev])
   }
 
-  function updateBookingStatus(id: number, status: BookingStatus) {
-    setBookings(prev => prev.map(b => (b.id === id ? { ...b, status } : b)))
+  function updateBookingStatus(id: number, status: BookingStatus, rejectionReason?: string) {
+    setBookings(prev =>
+      prev.map(b =>
+        b.id === id
+          ? {
+              ...b,
+              status,
+              ...(rejectionReason ? { rejectionReason } : {}),
+            }
+          : b
+      )
+    )
   }
 
   // ── Handlers C ─────────────────────────────────────────────────────────────
@@ -236,12 +286,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
         notices,
         addNotice,
         deleteNotice,
+        acknowledgeNotice,
         documents,
         addDocument,
         deleteDocument,
         userPermissions,
         addUserPermission,
         amenities,
+        toggleAmenityMaintenance,
         bookings,
         addBooking,
         updateBookingStatus,
@@ -270,3 +322,4 @@ export function useData() {
   }
   return ctx
 }
+

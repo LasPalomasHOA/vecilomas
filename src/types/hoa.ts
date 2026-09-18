@@ -12,7 +12,13 @@ export interface Resident {
   vehicles: string[]
 }
 
-export type NoticeType = 'Mantenimiento' | 'Asamblea' | 'Servicio' | 'Comunicado'
+export type NoticeType = 'Mantenimiento' | 'Asamblea' | 'Servicio' | 'Comunicado' | 'Seguridad'
+
+export interface NoticeAttachment {
+  name: string
+  size: string
+  url?: string
+}
 
 export interface Notice {
   id: number
@@ -21,6 +27,12 @@ export interface Notice {
   type: NoticeType
   content: string
   urgent?: boolean
+  pinned?: boolean
+  expiresAt?: string
+  attachment?: NoticeAttachment
+  acknowledgments?: number
+  readBy?: string[] // list of units or user emails that confirmed receipt
+  audience?: string // e.g. 'Todos los residentes', 'Torre A', 'Torre B', 'Villas'
 }
 
 export type DocumentCategory = 'Reglamento' | 'Asamblea' | 'Finanzas' | 'Manuales' | 'Políticas'
@@ -43,3 +55,4 @@ export interface UserRolePermission {
   status: 'Activo' | 'Inactivo'
   permissions: string[]
 }
+
