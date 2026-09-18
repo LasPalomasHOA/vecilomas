@@ -32,7 +32,7 @@ export function AmenitiesModule() {
         onChange={setTab}
       />
 
-      {tab === 'catalog' && <AmenityCatalog />}
+      {tab === 'catalog' && <AmenityCatalog isAdmin={true} />}
       {tab === 'calendar' && <InteractiveCalendar />}
       {tab === 'bookings' && <BookingManagement />}
     </div>
