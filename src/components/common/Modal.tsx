@@ -1,4 +1,5 @@
 import { useEffect, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import Ico from '@/components/common/Icons'
 
 interface ModalProps {
@@ -32,13 +33,13 @@ export function Modal({
     }
   }, [isOpen, onClose])
 
-  if (!isOpen) return null
+  if (!isOpen || typeof document === 'undefined') return null
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[100] overflow-y-auto">
-      {/* Backdrop */}
+      {/* Dark backdrop covering full screen including TopNav & BottomNav */}
       <div
-        className="fixed inset-0 bg-slate-950/60 backdrop-blur-xs transition-opacity animate-fade-in"
+        className="fixed inset-0 bg-slate-950/65 backdrop-blur-xs transition-opacity animate-fade-in"
         onClick={onClose}
       />
 
@@ -46,12 +47,12 @@ export function Modal({
       <div className="flex min-h-full items-center justify-center p-3 sm:p-6 text-center">
         {/* Modal dialog card */}
         <div
-          className={`relative w-full ${maxWidth} max-h-[85vh] flex flex-col rounded-3xl bg-white border border-slate-100 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] p-5 sm:p-7 z-10 animate-fade-in text-left my-auto overflow-hidden`}
+          className={`relative w-full ${maxWidth} max-h-[88vh] sm:max-h-[85vh] flex flex-col rounded-2xl sm:rounded-3xl bg-white border border-slate-100 shadow-[0_25px_60px_-15px_rgba(0,0,0,0.35)] p-4 sm:p-7 z-10 animate-fade-in text-left my-auto overflow-hidden`}
         >
           {/* Header */}
-          <div className="flex items-start justify-between gap-3 mb-4 pb-3.5 border-b border-slate-100 shrink-0">
+          <div className="flex items-start justify-between gap-3 mb-3.5 sm:mb-4 pb-3 sm:pb-3.5 border-b border-slate-100 shrink-0">
             <div className="min-w-0 flex-1">
-              <h3 className="font-display font-bold text-lg sm:text-xl text-slate-900 tracking-tight leading-snug truncate">
+              <h3 className="font-display font-bold text-base sm:text-xl text-slate-900 tracking-tight leading-snug truncate">
                 {title}
               </h3>
               {subtitle && (
@@ -70,12 +71,13 @@ export function Modal({
           </div>
 
           {/* Scrollable Body */}
-          <div className="overflow-y-auto flex-1 pr-1.5 -mr-1">
+          <div className="overflow-y-auto flex-1 pr-1 -mr-1">
             {children}
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
 

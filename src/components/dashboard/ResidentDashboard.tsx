@@ -4,6 +4,7 @@ import { useData } from '@/context/DataContext'
 import GCard from '@/components/common/Card'
 import Badge from '@/components/common/Badge'
 import Ico from '@/components/common/Icons'
+import Modal from '@/components/common/Modal'
 import loginImg0 from '@/imports/image.png'
 
 interface ResidentDashboardProps {
@@ -428,210 +429,180 @@ export function ResidentDashboard({ user, onNav }: ResidentDashboardProps) {
       </div>
 
       {/* Modal: Express 1-Click QR */}
-      {showExpressQR && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white rounded-3xl p-5 sm:p-7 max-w-md w-full shadow-2xl border border-teal-950/[0.08] relative">
+      <Modal
+        isOpen={showExpressQR}
+        onClose={() => setShowExpressQR(false)}
+        maxWidth="max-w-md"
+        title="Pase Rápido de Caseta"
+        subtitle="Vigencia automática de 2 horas para hoy"
+      >
+        {createdExpressCode ? (
+          <div className="space-y-4 py-2">
+            <div className="p-4 rounded-2xl bg-teal-50/80 border border-teal-200 text-center">
+              <p className="text-xs font-semibold text-teal-800 uppercase tracking-wider">Código de Acceso Digital</p>
+              <p className="text-3xl font-mono font-black text-teal-950 my-2 tracking-widest">{createdExpressCode}</p>
+              <p className="text-xs text-teal-700">Unidad {user.unit || 'A-101'} · Válido para caseta de entrada</p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                onClick={() => handleCopy(createdExpressCode)}
+                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
+              >
+                <Ico n="copy" c="w-4 h-4" />
+                <span>{copiedText === createdExpressCode ? '¡Copiado!' : 'Copiar Código'}</span>
+              </button>
+
+              <button
+                onClick={() => handleShareWhatsApp(createdExpressCode)}
+                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors cursor-pointer shadow-xs"
+              >
+                <Ico n="whatsapp" c="w-4 h-4" />
+                <span>WhatsApp</span>
+              </button>
+            </div>
+
             <button
               onClick={() => setShowExpressQR(false)}
-              className="absolute top-5 right-5 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
+              className="w-full py-2.5 text-center text-slate-500 text-xs font-semibold hover:text-slate-800 cursor-pointer"
             >
-              <Ico n="x" c="w-5 h-5" />
+              Cerrar
             </button>
-
-            <div className="flex items-center gap-2.5 mb-4">
-              <div className="w-10 h-10 rounded-2xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-800">
-                <Ico n="qr" c="w-5 h-5 text-teal-700" />
-              </div>
-              <div>
-                <h3 className="font-display font-bold text-slate-900 text-lg">Pase Rápido de Caseta</h3>
-                <p className="text-xs text-slate-500">Vigencia automática de 2 horas para hoy</p>
-              </div>
+          </div>
+        ) : (
+          <form onSubmit={handleCreateExpressQR} className="space-y-4">
+            <div className="flex gap-2 p-1 bg-slate-100 rounded-xl">
+              <button
+                type="button"
+                onClick={() => {
+                  setExpressType('delivery')
+                  setExpressVisitor('Repartidor / Uber Eats')
+                }}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  expressType === 'delivery'
+                    ? 'bg-white text-teal-950 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                🛵 Repartidor / Delivery
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setExpressType('visit')
+                  setExpressVisitor('')
+                }}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  expressType === 'visit'
+                    ? 'bg-white text-teal-950 shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                🚗 Visita / Familiar
+              </button>
             </div>
 
-            {createdExpressCode ? (
-              <div className="space-y-4 py-2">
-                <div className="p-4 rounded-2xl bg-teal-50/80 border border-teal-200 text-center">
-                  <p className="text-xs font-semibold text-teal-800 uppercase tracking-wider">Código de Acceso Digital</p>
-                  <p className="text-3xl font-mono font-black text-teal-950 my-2 tracking-widest">{createdExpressCode}</p>
-                  <p className="text-xs text-teal-700">Unidad {user.unit || 'A-101'} · Válido para caseta de entrada</p>
-                </div>
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1">Nombre o Empresa del Visitante</label>
+              <input
+                type="text"
+                required
+                value={expressVisitor}
+                onChange={e => setExpressVisitor(e.target.value)}
+                placeholder={expressType === 'delivery' ? 'Ej. Uber Eats / Amazon / Didi' : 'Ej. Juan Pérez'}
+                className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-teal-600 bg-white"
+              />
+            </div>
 
-                <div className="grid grid-cols-2 gap-2.5">
-                  <button
-                    onClick={() => handleCopy(createdExpressCode)}
-                    className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
-                  >
-                    <Ico n="copy" c="w-4 h-4" />
-                    <span>{copiedText === createdExpressCode ? '¡Copiado!' : 'Copiar Código'}</span>
-                  </button>
+            <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 space-y-1">
+              <p className="flex items-center justify-between">
+                <span className="text-slate-500">Unidad anfitriona:</span>
+                <strong className="text-slate-800">{user.unit || 'A-101'} ({user.name})</strong>
+              </p>
+              <p className="flex items-center justify-between">
+                <span className="text-slate-500">Vigencia estimada:</span>
+                <strong className="text-teal-700">Hoy (2 horas a partir de ahora)</strong>
+              </p>
+            </div>
 
-                  <button
-                    onClick={() => handleShareWhatsApp(createdExpressCode)}
-                    className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors cursor-pointer shadow-xs"
-                  >
-                    <Ico n="whatsapp" c="w-4 h-4" />
-                    <span>WhatsApp</span>
-                  </button>
-                </div>
-
-                <button
-                  onClick={() => setShowExpressQR(false)}
-                  className="w-full py-2.5 text-center text-slate-500 text-xs font-semibold hover:text-slate-800 cursor-pointer"
-                >
-                  Cerrar
-                </button>
-              </div>
-            ) : (
-              <form onSubmit={handleCreateExpressQR} className="space-y-4">
-                <div className="flex gap-2 p-1 bg-slate-100 rounded-xl">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setExpressType('delivery')
-                      setExpressVisitor('Repartidor / Uber Eats')
-                    }}
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      expressType === 'delivery'
-                        ? 'bg-white text-teal-950 shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    🛵 Repartidor / Delivery
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setExpressType('visit')
-                      setExpressVisitor('')
-                    }}
-                    className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
-                      expressType === 'visit'
-                        ? 'bg-white text-teal-950 shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    🚗 Visita / Familiar
-                  </button>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">Nombre o Empresa del Visitante</label>
-                  <input
-                    type="text"
-                    required
-                    value={expressVisitor}
-                    onChange={e => setExpressVisitor(e.target.value)}
-                    placeholder={expressType === 'delivery' ? 'Ej. Uber Eats / Amazon / Didi' : 'Ej. Juan Pérez'}
-                    className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 text-sm focus:outline-none focus:border-teal-600 bg-white"
-                  />
-                </div>
-
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-600 space-y-1">
-                  <p className="flex items-center justify-between">
-                    <span className="text-slate-500">Unidad anfitriona:</span>
-                    <strong className="text-slate-800">{user.unit || 'A-101'} ({user.name})</strong>
-                  </p>
-                  <p className="flex items-center justify-between">
-                    <span className="text-slate-500">Vigencia estimada:</span>
-                    <strong className="text-teal-700">Hoy (2 horas a partir de ahora)</strong>
-                  </p>
-                </div>
-
-                <div className="flex gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowExpressQR(false)}
-                    className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="submit"
-                    className="flex-1 py-2.5 rounded-xl bg-[#008080] hover:bg-[#006666] text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
-                  >
-                    Generar Pase Ahora
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
-        </div>
-      )}
+            <div className="flex gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowExpressQR(false)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 cursor-pointer"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="flex-1 py-2.5 rounded-xl bg-[#008080] hover:bg-[#006666] text-white text-xs font-bold transition-colors cursor-pointer shadow-xs"
+              >
+                Generar Pase Ahora
+              </button>
+            </div>
+          </form>
+        )}
+      </Modal>
 
       {/* Modal: Directory / Caseta Contacts */}
-      {showContactsModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
-          <div className="bg-white rounded-3xl p-5 sm:p-7 max-w-md w-full shadow-2xl border border-teal-950/[0.08] relative">
-            <button
-              onClick={() => setShowContactsModal(false)}
-              className="absolute top-5 right-5 p-1.5 rounded-full hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
-            >
-              <Ico n="x" c="w-5 h-5" />
-            </button>
-
-            <div className="flex items-center gap-2.5 mb-4">
-              <div className="w-10 h-10 rounded-2xl bg-teal-50 border border-teal-200 flex items-center justify-center text-teal-800">
-                <Ico n="phone" c="w-5 h-5 text-teal-700" />
-              </div>
-              <div>
-                <h3 className="font-display font-bold text-slate-900 text-lg">Directorio de Atención</h3>
-                <p className="text-xs text-slate-500">Contactos oficiales de Las Palomas Resort</p>
-              </div>
+      <Modal
+        isOpen={showContactsModal}
+        onClose={() => setShowContactsModal(false)}
+        maxWidth="max-w-md"
+        title="Directorio de Atención"
+        subtitle="Contactos oficiales de Las Palomas Resort"
+      >
+        <div className="space-y-3 py-1">
+          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-900">Caseta Principal (Seguridad 24/7)</p>
+              <p className="text-xs text-slate-500">Control vehicular y pases de acceso</p>
             </div>
-
-            <div className="space-y-3 py-1">
-              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold text-slate-900">Caseta Principal (Seguridad 24/7)</p>
-                  <p className="text-xs text-slate-500">Control vehicular y pases de acceso</p>
-                </div>
-                <a
-                  href="tel:+526383828000"
-                  className="px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center gap-1"
-                >
-                  <Ico n="phone" c="w-3.5 h-3.5" />
-                  <span>Ext. 101</span>
-                </a>
-              </div>
-
-              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold text-slate-900">Administración HOA / Concierge</p>
-                  <p className="text-xs text-slate-500">Cuotas, estados de cuenta y trámites</p>
-                </div>
-                <a
-                  href="tel:+526383828000"
-                  className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1"
-                >
-                  <Ico n="phone" c="w-3.5 h-3.5" />
-                  <span>Ext. 200</span>
-                </a>
-              </div>
-
-              <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
-                <div>
-                  <p className="text-xs font-bold text-slate-900">Mantenimiento de Guardia</p>
-                  <p className="text-xs text-slate-500">Fallas de agua, elevadores o electricidad</p>
-                </div>
-                <a
-                  href="tel:+526383828000"
-                  className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-1"
-                >
-                  <Ico n="phone" c="w-3.5 h-3.5" />
-                  <span>Ext. 300</span>
-                </a>
-              </div>
-            </div>
-
-            <button
-              onClick={() => setShowContactsModal(false)}
-              className="w-full mt-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+            <a
+              href="tel:+526383828000"
+              className="px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center gap-1"
             >
-              Cerrar Directorio
-            </button>
+              <Ico n="phone" c="w-3.5 h-3.5" />
+              <span>Ext. 101</span>
+            </a>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-900">Administración HOA / Concierge</p>
+              <p className="text-xs text-slate-500">Cuotas, estados de cuenta y trámites</p>
+            </div>
+            <a
+              href="tel:+526383828000"
+              className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs flex items-center gap-1"
+            >
+              <Ico n="phone" c="w-3.5 h-3.5" />
+              <span>Ext. 200</span>
+            </a>
+          </div>
+
+          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-900">Mantenimiento de Guardia</p>
+              <p className="text-xs text-slate-500">Fallas de agua, elevadores o electricidad</p>
+            </div>
+            <a
+              href="tel:+526383828000"
+              className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center gap-1"
+            >
+              <Ico n="phone" c="w-3.5 h-3.5" />
+              <span>Ext. 300</span>
+            </a>
           </div>
         </div>
-      )}
+
+        <button
+          onClick={() => setShowContactsModal(false)}
+          className="w-full mt-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold transition-colors cursor-pointer"
+        >
+          Cerrar Directorio
+        </button>
+      </Modal>
     </div>
   )
 }
