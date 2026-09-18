@@ -19,6 +19,6 @@
     "strict": true,
     "noFallthroughCasesInSwitch": true
   },
-  "include": ["src", "vite.config.ts"],
+  "include": ["src", "Server", "vite.config.ts"],
   "exclude": ["mobile", "node_modules"]
 }
