@@ -106,7 +106,7 @@ export function AmenityCatalog({
 
               <div className="absolute bottom-3 left-4 right-4">
                 <p className="text-[10px] font-mono text-teal-300 uppercase tracking-widest font-bold">
-                  ✦ ÁREA EXCLUSIVA RESIDENCIAL
+                  ÁREA EXCLUSIVA RESIDENCIAL
                 </p>
                 <h4 className="font-display font-black text-white text-lg leading-tight drop-shadow-xs">
                   {a.name}

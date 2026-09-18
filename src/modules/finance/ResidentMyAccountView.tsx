@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import type { TicketPriority } from '@/types/finance'
-import { BRAND_COLORS } from '@/types'
 import { useData } from '@/context/DataContext'
 import ModHero from '@/components/common/ModHero'
 import SubTabs from '@/components/common/SubTabs'
@@ -9,6 +8,7 @@ import Badge from '@/components/common/Badge'
 import Btn from '@/components/common/Button'
 import Modal from '@/components/common/Modal'
 import Ico from '@/components/common/Icons'
+import QRVisual from '@/components/common/QRVisual'
 
 type ResidentAccountTab = 'statement' | 'tickets'
 
@@ -27,7 +27,8 @@ export function ResidentMyAccountView({
   const [tab, setTab] = useState<ResidentAccountTab>(defaultTab)
   const [modalTicketOpen, setModalTicketOpen] = useState(false)
   const [ticketToast, setTicketToast] = useState<string | null>(null)
-  const [copiedClabe, setCopiedClabe] = useState(false)
+  const [copiedField, setCopiedField] = useState<string | null>(null)
+  const [showCardQR, setShowCardQR] = useState(false)
 
   const [form, setForm] = useState({
     location: '',
@@ -53,28 +54,41 @@ export function ResidentMyAccountView({
     })
 
     setModalTicketOpen(false)
-    setTicketToast('¡Tu reporte de falla fue enviado a la administración con éxito!')
+    setTicketToast('¡Tu reporte de falla fue enviado al equipo de mantenimiento!')
     setTimeout(() => setTicketToast(null), 4000)
     setForm({ location: '', issue: '', priority: 'Media' })
   }
 
-  function handleCopyClabe() {
-    navigator.clipboard.writeText('012 180 00123456789 0')
-    setCopiedClabe(true)
-    setTimeout(() => setCopiedClabe(false), 3000)
+  function handleCopy(text: string, label: string) {
+    navigator.clipboard.writeText(text)
+    setCopiedField(label)
+    setTimeout(() => setCopiedField(null), 2500)
+  }
+
+  function getStepIndex(status: string) {
+    switch (status) {
+      case 'Abierto':
+        return 1
+      case 'En Progreso':
+        return 2
+      case 'Resuelto':
+        return 3
+      default:
+        return 1
+    }
   }
 
   return (
     <div>
       <ModHero
-        icon={<Ico n="dollar" c="w-6 h-6" />}
+        icon={<Ico n="creditCard" c="w-6 h-6 text-teal-700" />}
         title="Mi Cuenta y Soporte Residencial"
         desc="Consulta el estado de cuenta de tu condominio, verifica tu historial de cuotas de mantenimiento y reporta incidencias de áreas comunes."
       />
 
       {ticketToast && (
-        <div className="mb-4 p-4 rounded-2xl bg-[#e6f2f0] border border-[#7eb0a6] text-[#003333] text-xs sm:text-sm font-bold flex items-center gap-3 animate-fade-in shadow-md">
-          <Ico n="check" c="w-5 h-5 text-[#008080]" />
+        <div className="mb-4 p-4 rounded-2xl bg-teal-50 border border-teal-200 text-teal-900 text-xs sm:text-sm font-bold flex items-center gap-3 animate-fade-in shadow-xs">
+          <Ico n="check" c="w-5 h-5 text-teal-600" />
           {ticketToast}
         </div>
       )}
@@ -94,20 +108,16 @@ export function ResidentMyAccountView({
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Visual Platinum Luxury Card */}
             <div
-              className="rounded-3xl p-6 sm:p-7 text-white shadow-[0_20px_45px_rgba(0,51,51,0.35)] relative overflow-hidden flex flex-col justify-between min-h-[230px] border border-teal-500/30"
+              className="rounded-3xl p-6 sm:p-7 text-white shadow-xl relative overflow-hidden flex flex-col justify-between min-h-[240px] border border-teal-500/30"
               style={{
                 background:
                   'linear-gradient(135deg, #002b2b 0%, #004c4c 50%, #008080 100%)',
               }}
             >
-              {/* Card glossy light glare & holographic mesh */}
+              {/* Holographic light glare */}
               <div
-                className="absolute -right-12 -top-12 w-56 h-56 rounded-full pointer-events-none opacity-30"
+                className="absolute -right-12 -top-12 w-56 h-56 rounded-full pointer-events-none opacity-25"
                 style={{ background: 'radial-gradient(circle, rgba(45, 212, 191, 0.6) 0%, transparent 70%)' }}
-              />
-              <div
-                className="absolute -left-12 -bottom-12 w-48 h-48 rounded-full pointer-events-none opacity-20"
-                style={{ background: 'radial-gradient(circle, rgba(245, 158, 11, 0.5) 0%, transparent 70%)' }}
               />
 
               <div className="flex items-center justify-between relative z-10">
@@ -115,27 +125,42 @@ export function ResidentMyAccountView({
                   <div className="flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-teal-300 animate-pulse" />
                     <p className="text-[10px] font-mono tracking-widest text-teal-300 font-bold uppercase">
-                      ✦ LAS PALOMAS RESORT
+                      LAS PALOMAS RESORT & RESIDENCES
                     </p>
                   </div>
                   <p className="text-xs font-semibold text-teal-100/90 mt-0.5">Credencial Digital de Residente</p>
                 </div>
-                {/* Gold Card Chip */}
-                <div className="w-10 h-7 rounded-lg bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 border border-amber-300/80 shadow-xs flex items-center justify-center">
+
+                {/* Switch to QR / Card Chip */}
+                <button
+                  type="button"
+                  onClick={() => setShowCardQR(!showCardQR)}
+                  className="w-10 h-7 rounded-lg bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 border border-amber-300/80 shadow-xs flex items-center justify-center cursor-pointer hover:scale-105 transition-transform"
+                  title="Toca para alternar código QR"
+                >
                   <div className="w-6 h-4 border border-amber-800/30 rounded-xs flex items-center justify-center">
                     <div className="w-4 h-2 border-t border-b border-amber-800/30" />
                   </div>
-                </div>
+                </button>
               </div>
 
-              <div className="my-3 relative z-10">
-                <p className="text-[10px] font-mono text-teal-200 uppercase tracking-widest font-semibold">
-                  Unidad Condominal
-                </p>
-                <p className="text-3xl sm:text-4xl font-display font-black text-white tracking-wider drop-shadow-xs">
-                  {unit}
-                </p>
-              </div>
+              {showCardQR ? (
+                <div className="my-2 py-2 flex flex-col items-center justify-center bg-white/10 rounded-2xl border border-white/20 backdrop-blur-md relative z-10">
+                  <div className="p-1.5 bg-white rounded-xl">
+                    <QRVisual seed={`RESIDENT-${unit}-${name}`} size={3.5} />
+                  </div>
+                  <p className="text-[10px] font-mono text-teal-200 mt-1">Escaneo de Caseta / Amenidades</p>
+                </div>
+              ) : (
+                <div className="my-3 relative z-10">
+                  <p className="text-[10px] font-mono text-teal-200 uppercase tracking-widest font-semibold">
+                    Unidad Condominal
+                  </p>
+                  <p className="text-3xl sm:text-4xl font-display font-black text-white tracking-wider drop-shadow-xs">
+                    {unit}
+                  </p>
+                </div>
+              )}
 
               <div className="flex items-center justify-between text-xs pt-3 border-t border-white/20 gap-2 relative z-10">
                 <div className="min-w-0">
@@ -166,8 +191,8 @@ export function ResidentMyAccountView({
                       <div
                         className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 border ${
                           myFee.status === 'Pagada'
-                            ? 'bg-gradient-to-br from-emerald-500/20 to-emerald-700/10 border-emerald-500/25 text-emerald-800 shadow-[0_2px_8px_rgba(16,185,129,0.15)]'
-                            : 'bg-gradient-to-br from-red-500/20 to-rose-700/10 border-red-500/25 text-red-800 shadow-[0_2px_8px_rgba(239,68,68,0.15)]'
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                            : 'bg-red-50 border-red-200 text-red-800'
                         }`}
                       >
                         <Ico n="dollar" c="w-6 h-6" />
@@ -204,38 +229,54 @@ export function ResidentMyAccountView({
                       Datos Bancarios para Pago por Transferencia SPEI
                     </h4>
                   </div>
-                  {copiedClabe && (
-                    <span className="text-xs font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200 animate-fade-in whitespace-nowrap self-start sm:self-auto shrink-0 shadow-2xs">
-                      ✓ ¡CLABE copiada!
+                  {copiedField && (
+                    <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200 animate-fade-in whitespace-nowrap">
+                      ✓ ¡{copiedField} copiado!
                     </span>
                   )}
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs bg-slate-50/90 p-4 rounded-2xl border border-slate-200/80">
-                  <div>
-                    <p className="text-slate-500 text-[11px] font-medium whitespace-nowrap">Banco Destino:</p>
-                    <p className="font-bold text-slate-900 text-sm mt-0.5 whitespace-nowrap">BBVA México</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500 text-[11px] font-medium whitespace-nowrap">Beneficiario:</p>
-                    <p className="font-bold text-slate-900 text-sm mt-0.5 truncate">Condominios Las Palomas A.C.</p>
-                  </div>
-                  <div>
-                    <p className="text-slate-500 text-[11px] font-medium whitespace-nowrap">CLABE Interbancaria:</p>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <span className="font-mono font-bold text-slate-900 text-xs sm:text-sm whitespace-nowrap">012 180 00123456789 0</span>
-                      <button
-                        onClick={handleCopyClabe}
-                        className="p-1 rounded-md text-[#008080] hover:bg-teal-50 cursor-pointer shrink-0 border border-teal-200/60"
-                        title="Copiar CLABE"
-                      >
-                        <Ico n="tag" c="w-3.5 h-3.5" />
-                      </button>
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-200/60">
+                    <div>
+                      <p className="text-slate-500 text-[10px] font-medium">Banco Receptor:</p>
+                      <p className="font-bold text-slate-900 text-xs sm:text-sm mt-0.5">BBVA México</p>
                     </div>
+                    <button
+                      onClick={() => handleCopy('BBVA México', 'Banco')}
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-teal-800 hover:bg-teal-50 transition-colors cursor-pointer"
+                      title="Copiar Banco"
+                    >
+                      <Ico n="copy" c="w-3.5 h-3.5" />
+                    </button>
                   </div>
-                  <div>
-                    <p className="text-slate-500 text-[11px] font-medium whitespace-nowrap">Concepto Obligatorio:</p>
-                    <p className="font-mono font-bold text-[#008080] text-sm mt-0.5 whitespace-nowrap">CUOTA-{unit}</p>
+
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-200/60">
+                    <div>
+                      <p className="text-slate-500 text-[10px] font-medium">Beneficiario:</p>
+                      <p className="font-bold text-slate-900 text-xs sm:text-sm mt-0.5 truncate max-w-[160px]">Condominios Las Palomas A.C.</p>
+                    </div>
+                    <button
+                      onClick={() => handleCopy('Condominios Las Palomas A.C.', 'Beneficiario')}
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-teal-800 hover:bg-teal-50 transition-colors cursor-pointer"
+                      title="Copiar Beneficiario"
+                    >
+                      <Ico n="copy" c="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-200/60 sm:col-span-2">
+                    <div>
+                      <p className="text-slate-500 text-[10px] font-medium">CLABE Interbancaria (18 dígitos):</p>
+                      <p className="font-mono font-bold text-teal-950 text-sm sm:text-base mt-0.5">012 180 00123456789 0</p>
+                    </div>
+                    <button
+                      onClick={() => handleCopy('012180001234567890', 'CLABE')}
+                      className="px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                    >
+                      <Ico n="copy" c="w-3.5 h-3.5" />
+                      <span>Copiar CLABE</span>
+                    </button>
                   </div>
                 </div>
               </GCard>
@@ -246,67 +287,99 @@ export function ResidentMyAccountView({
 
       {tab === 'tickets' && (
         <div className="space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-xl bg-white border border-slate-100 shadow-xs">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
             <div className="min-w-0">
               <h3 className="font-display font-bold text-slate-900 text-base truncate">
                 Reportes de Falla y Mantenimiento
               </h3>
-              <p className="text-xs text-slate-400 truncate">
-                Informa sobre problemas en elevadores, fugas o áreas comunes.
+              <p className="text-xs text-slate-500 truncate">
+                Informa sobre incidencias en elevadores, plomería o áreas comunes y rastrea su progreso.
               </p>
             </div>
             <Btn onClick={() => setModalTicketOpen(true)}>
               <Ico n="plus" c="w-4 h-4" />
-              Reportar Falla
+              Nuevo Reporte
             </Btn>
           </div>
 
-          <div className="space-y-2.5">
-            {myTickets.map(t => (
-              <GCard key={t.id} className="shadow-xs border border-slate-100 bg-white">
-                <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
-                  <div className="flex items-start gap-3.5 min-w-0 flex-1">
-                    <div
-                      className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
-                        t.status === 'Resuelto'
-                          ? 'bg-[#e6f2f0] text-[#004c4c]'
-                          : t.priority === 'Alta'
-                          ? 'bg-red-50 text-red-500'
-                          : 'bg-amber-50 text-amber-500'
-                      }`}
-                    >
-                      <Ico n="tool" c="w-5 h-5" />
-                    </div>
+          <div className="space-y-3">
+            {myTickets.map(t => {
+              const currentStep = getStepIndex(t.status)
 
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span className="font-mono text-xs font-black text-slate-500 whitespace-nowrap">{t.id}</span>
-                        <Badge text={t.priority} />
-                        <Badge text={t.status} />
+              return (
+                <GCard key={t.id} className="shadow-xs border border-slate-200/80 bg-white">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
+                    <div className="flex items-start gap-3.5 min-w-0 flex-1">
+                      <div
+                        className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 border ${
+                          t.status === 'Resuelto'
+                            ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                            : t.priority === 'Alta'
+                            ? 'bg-red-50 text-red-700 border-red-200'
+                            : 'bg-amber-50 text-amber-700 border-amber-200'
+                        }`}
+                      >
+                        <Ico n="tool" c="w-5 h-5" />
                       </div>
-                      <p className="font-bold text-slate-900 text-sm sm:text-base mb-0.5">{t.issue}</p>
-                      <p className="text-xs text-slate-500 font-mono truncate">
-                        📍 {t.location} · {t.date}
-                        {t.assignedTo ? ` · Técnico: ${t.assignedTo}` : ''}
-                      </p>
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="font-mono text-xs font-bold text-slate-600">{t.id}</span>
+                          <Badge text={t.priority} />
+                          <Badge text={t.status} />
+                        </div>
+                        <p className="font-bold text-slate-900 text-sm sm:text-base mb-1">{t.issue}</p>
+                        <p className="text-xs text-slate-500 font-medium">
+                          📍 {t.location} · 📅 {t.date}
+                          {t.assignedTo ? ` · Asignado a: ${t.assignedTo}` : ''}
+                        </p>
+
+                        {/* Interactive Timeline Progress Bar */}
+                        <div className="mt-4 pt-3 border-t border-slate-100">
+                          <p className="text-[10px] font-mono font-bold text-slate-400 uppercase tracking-wider mb-2">Progreso de Atención</p>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div className={`p-2 rounded-xl text-center text-xs font-bold border transition-colors ${
+                              currentStep >= 1
+                                ? 'bg-teal-50 border-teal-200 text-teal-900'
+                                : 'bg-slate-50 border-slate-200 text-slate-400'
+                            }`}>
+                              <span>1. Registrado</span>
+                            </div>
+                            <div className={`p-2 rounded-xl text-center text-xs font-bold border transition-colors ${
+                              currentStep >= 2
+                                ? 'bg-indigo-50 border-indigo-200 text-indigo-900'
+                                : 'bg-slate-50 border-slate-200 text-slate-400'
+                            }`}>
+                              <span>2. En Reparación</span>
+                            </div>
+                            <div className={`p-2 rounded-xl text-center text-xs font-bold border transition-colors ${
+                              currentStep >= 3
+                                ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                                : 'bg-slate-50 border-slate-200 text-slate-400'
+                            }`}>
+                              <span>3. Resuelto ✓</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </GCard>
-            ))}
+                </GCard>
+              )
+            })}
 
             {myTickets.length === 0 && (
-              <GCard className="text-center py-16 shadow-md border border-[#7eb0a6]/30 bg-white">
-                <div className="w-16 h-16 rounded-3xl flex items-center justify-center mx-auto mb-3 bg-[#e6f2f0] text-[#004c4c] shadow-inner">
-                  <Ico n="tool" c="w-8 h-8" />
+              <GCard className="text-center py-14 shadow-xs border border-slate-200 bg-white">
+                <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-3 bg-teal-50 text-teal-800 border border-teal-100">
+                  <Ico n="tool" c="w-7 h-7 text-teal-700" />
                 </div>
-                <p className="font-display font-bold text-[#003333] text-lg">Sin reportes de falla activos</p>
-                <p className="text-xs text-slate-400 mt-1 max-w-sm mx-auto">
-                  Si encuentras algún desperfecto en tu edificio o áreas comunes, abre un reporte para que el personal técnico lo atienda.
+                <p className="font-display font-bold text-slate-900 text-base">Sin reportes de falla activos</p>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                  Si encuentras algún desperfecto en áreas comunes o en tu torre, genera un reporte para atención inmediata.
                 </p>
                 <button
                   onClick={() => setModalTicketOpen(true)}
-                  className="mt-4 px-5 py-2.5 rounded-xl text-xs font-bold bg-[#004c4c] text-white hover:bg-[#008080] transition-colors cursor-pointer"
+                  className="mt-4 px-4 py-2 rounded-xl text-xs font-bold bg-teal-800 text-white hover:bg-teal-700 transition-colors cursor-pointer"
                 >
                   Abrir Reporte de Falla
                 </button>
@@ -319,56 +392,54 @@ export function ResidentMyAccountView({
             isOpen={modalTicketOpen}
             onClose={() => setModalTicketOpen(false)}
             title="Reportar Falla en Áreas Comunes"
-            subtitle="Describe la falla para que el equipo de mantenimiento atienda tu reporte."
+            subtitle="Describe la incidencia para que el equipo de guardia la atienda."
           >
             <form onSubmit={handleSubmitTicket} className="space-y-4">
               <div>
-                <label className="block text-xs font-mono uppercase tracking-wider mb-1 text-[#004c4c] font-bold">
+                <label className="block text-xs uppercase tracking-wider mb-1 text-slate-700 font-bold">
                   Ubicación de la Incidencia
                 </label>
                 <input
                   required
                   value={form.location}
                   onChange={e => setForm(f => ({ ...f, location: e.target.value }))}
-                  placeholder="Ej. Pasillo Nivel 2, Elevador Torre A, Gimnasio..."
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl"
-                  style={GLASS_STYLES.input}
+                  placeholder="Ej. Elevador Torre Coronado, Pasillo Nivel 3, Cancha..."
+                  className="w-full px-3.5 py-2.5 text-sm rounded-xl border border-slate-200 bg-white focus:outline-none focus:border-teal-600"
                 />
               </div>
 
               <div>
-                <label className="block text-xs font-mono uppercase tracking-wider mb-1 text-[#004c4c] font-bold">
+                <label className="block text-xs uppercase tracking-wider mb-1 text-slate-700 font-bold">
                   Nivel de Urgencia
                 </label>
                 <select
                   value={form.priority}
                   onChange={e => setForm(f => ({ ...f, priority: e.target.value as TicketPriority }))}
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-white border border-[#7eb0a6]/50 font-medium"
+                  className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-white border border-slate-200 font-medium"
                 >
-                  <option value="Alta">Alta (Fuga activa, falla de elevador, corte eléctrico)</option>
-                  <option value="Media">Media (Lámpara fundida, cerradura dañada)</option>
-                  <option value="Baja">Baja (Mantenimiento preventivo menor, pintura)</option>
+                  <option value="Alta">Alta (Fuga de agua, elevador bloqueado, corte eléctrico)</option>
+                  <option value="Media">Media (Lámpara fundida, cerrajería)</option>
+                  <option value="Baja">Baja (Pintura, mantenimiento preventivo menor)</option>
                 </select>
               </div>
 
               <div>
-                <label className="block text-xs font-mono uppercase tracking-wider mb-1 text-[#004c4c] font-bold">
-                  Descripción Detallada
+                <label className="block text-xs uppercase tracking-wider mb-1 text-slate-700 font-bold">
+                  Descripción del Problema
                 </label>
                 <textarea
                   required
                   rows={4}
                   value={form.issue}
                   onChange={e => setForm(f => ({ ...f, issue: e.target.value }))}
-                  placeholder="Explica qué sucede, dónde se encuentra exactamente y cualquier observación relevante..."
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl resize-none"
-                  style={GLASS_STYLES.input}
+                  placeholder="Explica qué sucede y cualquier detalle relevante para el personal técnico..."
+                  className="w-full px-3.5 py-2.5 text-sm rounded-xl resize-none border border-slate-200 bg-white focus:outline-none focus:border-teal-600"
                 />
               </div>
 
               <div className="flex gap-3 pt-3">
                 <Btn type="submit" className="flex-1 font-bold">
-                  Enviar Reporte a Administración
+                  Enviar Reporte
                 </Btn>
                 <Btn variant="ghost" onClick={() => setModalTicketOpen(false)}>
                   Cancelar
@@ -381,4 +452,5 @@ export function ResidentMyAccountView({
     </div>
   )
 }
+
 export default ResidentMyAccountView
