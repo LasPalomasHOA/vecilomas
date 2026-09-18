@@ -122,6 +122,7 @@ export function AmenityFormModal({
     <Modal
       isOpen={isOpen}
       onClose={onClose}
+      maxWidth="max-w-xl"
       title={editingAmenity ? `Editar Amenidad: ${editingAmenity.name}` : 'Agregar Nueva Amenidad'}
       subtitle="Configura los datos del espacio común, horarios permitidos, cuotas y reglas de reservación."
     >
