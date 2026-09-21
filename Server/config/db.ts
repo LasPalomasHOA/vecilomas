@@ -8,11 +8,12 @@ const { Pool } = pg
 const isProduction = process.env.NODE_ENV === 'production'
 const defaultSchema = process.env.DB_SCHEMA || 'vecilomas'
 
-// Variables exclusivas de Vercel / Cloud
+// Variables de Vercel / Cloud con fallback de conexión a Supabase
 const rawConnectionString =
   process.env.POSTGRES_URL ||
   process.env.POSTGRES_PRISMA_URL ||
-  process.env.DATABASE_URL
+  process.env.DATABASE_URL ||
+  'postgres://vecilomas_app.kjzkztkspujkbvymwnvy:VeciLomas_2026@aws-0-us-east-1.pooler.supabase.com:6543/postgres'
 
 function getPoolConfig(): pg.PoolConfig {
   const commonOptions = {
