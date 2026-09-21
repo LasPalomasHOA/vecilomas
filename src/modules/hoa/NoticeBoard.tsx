@@ -164,9 +164,9 @@ export function NoticeBoard() {
             {search && (
               <button
                 onClick={() => setSearch('')}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs p-1 cursor-pointer"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
               >
-                ✕
+                <Ico n="x" c="w-3.5 h-3.5" />
               </button>
             )}
           </div>
@@ -202,19 +202,25 @@ export function NoticeBoard() {
                 <div className="flex flex-col md:flex-row items-start justify-between gap-4">
                   <div className="flex-1 min-w-0 space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-md">
-                        ⚡ Urgente
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-md">
+                        <Ico n="zap" c="w-3.5 h-3.5 text-amber-600" />
+                        Urgente
                       </span>
                       <Badge text={n.type} />
                       {n.audience && (
-                        <span className="text-[11px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-                          👥 {n.audience}
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                          <Ico n="users" c="w-3 h-3 text-slate-400" />
+                          {n.audience}
                         </span>
                       )}
-                      <span className="text-slate-400 text-xs font-mono">📅 {n.date}</span>
+                      <span className="inline-flex items-center gap-1 text-slate-400 text-xs font-mono">
+                        <Ico n="calendar" c="w-3.5 h-3.5 text-slate-400" />
+                        {n.date}
+                      </span>
                       {n.expiresAt && (
-                        <span className="text-amber-800 bg-amber-50 font-bold px-2 py-0.5 rounded-md text-[11px] font-mono border border-amber-200/60">
-                          ⏳ Vigencia: {n.expiresAt}
+                        <span className="inline-flex items-center gap-1 text-amber-800 bg-amber-50 font-bold px-2 py-0.5 rounded-md text-[11px] font-mono border border-amber-200/60">
+                          <Ico n="clock" c="w-3 h-3 text-amber-700" />
+                          Vigencia: {n.expiresAt}
                         </span>
                       )}
                     </div>
@@ -296,17 +302,22 @@ export function NoticeBoard() {
                   {/* Meta Badges */}
                   <div className="flex flex-wrap items-center gap-2">
                     {n.pinned && (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-800 bg-purple-100/80 border border-purple-200 px-2.5 py-0.5 rounded-md">
-                        📌 Fijado
+                      <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-purple-800 bg-purple-100/80 border border-purple-200 px-2.5 py-0.5 rounded-md">
+                        <Ico n="pin" c="w-3.5 h-3.5 text-purple-600" />
+                        Fijado
                       </span>
                     )}
                     <Badge text={n.type} />
                     {n.audience && (
-                      <span className="text-[11px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-                        👥 {n.audience}
+                      <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                        <Ico n="users" c="w-3 h-3 text-slate-400" />
+                        {n.audience}
                       </span>
                     )}
-                    <span className="text-slate-400 text-xs font-mono">📅 {n.date}</span>
+                    <span className="inline-flex items-center gap-1 text-slate-400 text-xs font-mono">
+                      <Ico n="calendar" c="w-3.5 h-3.5 text-slate-400" />
+                      {n.date}
+                    </span>
                     {n.expiresAt && (
                       <span className="text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md text-[11px] font-mono">
                         Vigencia: {n.expiresAt}
@@ -469,7 +480,10 @@ export function NoticeBoard() {
                 onChange={e => setForm(f => ({ ...f, pinned: e.target.checked }))}
                 className="rounded text-purple-600 focus:ring-purple-400 w-4 h-4 cursor-pointer"
               />
-              <span>📌 Fijar en la parte superior</span>
+              <span className="inline-flex items-center gap-1.5">
+                <Ico n="pin" c="w-3.5 h-3.5 text-purple-600" />
+                Fijar en la parte superior
+              </span>
             </label>
 
             <label className="flex items-center gap-2 text-xs font-semibold text-amber-900 cursor-pointer">
@@ -479,7 +493,10 @@ export function NoticeBoard() {
                 onChange={e => setForm(f => ({ ...f, urgent: e.target.checked }))}
                 className="rounded text-amber-600 focus:ring-amber-400 w-4 h-4 cursor-pointer"
               />
-              <span>⚡ Marcar como Urgente</span>
+              <span className="inline-flex items-center gap-1.5">
+                <Ico n="zap" c="w-3.5 h-3.5 text-amber-600" />
+                Marcar como Urgente
+              </span>
             </label>
           </div>
 

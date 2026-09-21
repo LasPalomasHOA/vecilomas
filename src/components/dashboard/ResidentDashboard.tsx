@@ -144,7 +144,6 @@ export function ResidentDashboard({ user, onNav }: ResidentDashboardProps) {
       validTime,
       status: 'Activo',
       visitType: expressType === 'delivery' ? 'Proveedor' : 'Visita',
-      vehiclePlate: '',
     })
 
     setCreatedExpressCode(code)
@@ -478,13 +477,14 @@ export function ResidentDashboard({ user, onNav }: ResidentDashboardProps) {
                   setExpressType('delivery')
                   setExpressVisitor('Repartidor / Uber Eats')
                 }}
-                className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                   expressType === 'delivery'
                     ? 'bg-white text-teal-950 shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                🛵 Repartidor / Delivery
+                <Ico n="truck" c="w-3.5 h-3.5 text-teal-700" />
+                <span>Repartidor / Delivery</span>
               </button>
               <button
                 type="button"
@@ -492,13 +492,14 @@ export function ResidentDashboard({ user, onNav }: ResidentDashboardProps) {
                   setExpressType('visit')
                   setExpressVisitor('')
                 }}
-                className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
                   expressType === 'visit'
                     ? 'bg-white text-teal-950 shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                🚗 Visita / Familiar
+                <Ico n="car" c="w-3.5 h-3.5 text-teal-700" />
+                <span>Visita / Familiar</span>
               </button>
             </div>
 

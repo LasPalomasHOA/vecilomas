@@ -44,7 +44,7 @@ export function TopNav({
               <span className="w-1.5 h-1.5 rounded-full bg-[#008080] animate-pulse" />
             </div>
             <p className="text-[10px] font-mono font-semibold text-teal-800/70 uppercase tracking-widest mt-0.5 flex items-center gap-1">
-              <span>✦ RESORT & RESIDENCES</span>
+              <span>RESORT & RESIDENCES</span>
             </p>
           </div>
         </div>

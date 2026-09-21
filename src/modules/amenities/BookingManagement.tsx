@@ -272,11 +272,20 @@ export function BookingManagement() {
                         <p className="text-xs text-slate-400">Depto {b.unit}</p>
                       </td>
                       <td className="px-4 py-3.5 whitespace-nowrap text-xs text-slate-600">
-                        <p className="font-medium text-slate-800">📅 {b.date}</p>
-                        <p className="text-slate-500 mt-0.5">⏰ {b.time}</p>
+                        <p className="font-medium text-slate-800 inline-flex items-center gap-1.5">
+                          <Ico n="calendar" c="w-3.5 h-3.5 text-slate-400" />
+                          {b.date}
+                        </p>
+                        <p className="text-slate-500 mt-0.5 inline-flex items-center gap-1.5">
+                          <Ico n="clock" c="w-3.5 h-3.5 text-slate-400" />
+                          {b.time}
+                        </p>
                       </td>
                       <td className="px-4 py-3.5 text-xs text-slate-600 whitespace-nowrap">
-                        👥 {b.guests} personas
+                        <span className="inline-flex items-center gap-1.5">
+                          <Ico n="users" c="w-3.5 h-3.5 text-slate-400" />
+                          {b.guests} personas
+                        </span>
                       </td>
                       <td className="px-4 py-3.5 text-xs font-semibold text-teal-700 whitespace-nowrap">
                         {b.cost || 'Sin costo'}
@@ -357,7 +366,17 @@ export function BookingManagement() {
                     <div className="flex items-center justify-between gap-2 mb-1">
                       <h4 className="font-display font-semibold text-slate-900 text-sm truncate">{a.name}</h4>
                       <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${a.available ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'}`}>
-                        {a.available ? '● Disponible' : '⚠️ En Mantenimiento'}
+                        {a.available ? (
+                          <span className="inline-flex items-center gap-1">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                            Disponible
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1">
+                            <Ico n="alertTriangle" c="w-3 h-3 text-amber-600" />
+                            En Mantenimiento
+                          </span>
+                        )}
                       </span>
                     </div>
 

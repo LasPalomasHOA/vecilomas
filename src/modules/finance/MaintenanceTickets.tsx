@@ -141,8 +141,13 @@ export function MaintenanceTickets() {
                   </div>
 
                   <p className="font-semibold text-slate-900 text-sm mb-0.5">{t.issue}</p>
-                  <p className="text-xs text-slate-400 font-mono truncate">
-                    📍 {t.location} · {t.reporter} · {t.date}
+                  <p className="text-xs text-slate-400 font-mono truncate inline-flex items-center gap-1.5">
+                    <Ico n="mapPin" c="w-3.5 h-3.5 text-slate-400" />
+                    <span>{t.location}</span>
+                    <span>·</span>
+                    <span>{t.reporter}</span>
+                    <span>·</span>
+                    <span>{t.date}</span>
                   </p>
                 </div>
               </div>

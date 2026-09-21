@@ -26,7 +26,7 @@ export function AdminDashboard({ user, onNav }: AdminDashboardProps) {
   const [isAmenityModalOpen, setIsAmenityModalOpen] = useState(false)
   const [toastMessage, setToastMessage] = useState<string | null>(null)
 
-  const inFacilityCount = visits.filter(v => v.status === 'En Sitio' || v.status === 'En Instalaciones').length
+  const inFacilityCount = visits.filter(v => v.status === 'En Instalaciones').length
   const overdueFees = fees.filter(f => f.status === 'Vencida')
   const overdueTotal = overdueFees.reduce((acc, f) => acc + f.amount, 0)
   const pendingBookingsList = bookings.filter(b => b.status === 'Pendiente')
@@ -299,11 +299,25 @@ export function AdminDashboard({ user, onNav }: AdminDashboardProps) {
                         Pendiente
                       </span>
                     </div>
-                    <p className="text-xs text-slate-600 font-medium">
-                      Solicitante: <strong>{b.resident}</strong> (Unidad {b.unit}) · 👥 {b.guests} personas
+                    <p className="text-xs text-slate-600 font-medium inline-flex items-center gap-1.5 flex-wrap">
+                      <span>Solicitante: <strong>{b.resident}</strong> (Unidad {b.unit})</span>
+                      <span>·</span>
+                      <span className="inline-flex items-center gap-1">
+                        <Ico n="users" c="w-3 h-3 text-slate-400" />
+                        {b.guests} personas
+                      </span>
                     </p>
-                    <p className="text-[11px] font-mono text-slate-500 mt-0.5">
-                      📅 {b.date} · ⏰ {b.time} {b.cost ? `· Cuota: ${b.cost}` : ''}
+                    <p className="text-[11px] font-mono text-slate-500 mt-0.5 inline-flex items-center gap-1.5 flex-wrap">
+                      <span className="inline-flex items-center gap-1">
+                        <Ico n="calendar" c="w-3 h-3 text-slate-400" />
+                        {b.date}
+                      </span>
+                      <span>·</span>
+                      <span className="inline-flex items-center gap-1">
+                        <Ico n="clock" c="w-3 h-3 text-slate-400" />
+                        {b.time}
+                      </span>
+                      {b.cost ? <span>· Cuota: {b.cost}</span> : ''}
                     </p>
                   </div>
 
@@ -344,8 +358,8 @@ export function AdminDashboard({ user, onNav }: AdminDashboardProps) {
                     <p className="font-bold text-slate-900 truncate">{v.visitor}</p>
                     <p className="text-[10px] text-slate-500 truncate">Unidad {v.unit} · {v.type || 'Visita'}</p>
                   </div>
-                  <span className="font-mono text-[10px] text-teal-800 font-bold bg-teal-50 px-2 py-0.5 rounded-md border border-teal-100 shrink-0">
-                    {v.entryTime || '14:20'} hrs
+                  <span className="font-mono text-[10px] text-teal-800 font-bold bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-100 shrink-0">
+                    {v.entry || '14:20'} hrs
                   </span>
                 </div>
               ))}

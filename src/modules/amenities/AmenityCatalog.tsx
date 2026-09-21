@@ -192,12 +192,22 @@ export function AmenityCatalog({
                     : 'bg-amber-600/90 border-amber-400/40 text-amber-50'
                 }`}
               >
-                {a.available ? '✓ Disponible' : '⚠️ En Mantenimiento'}
+                {a.available ? (
+                  <span className="inline-flex items-center gap-1">
+                    <Ico n="check" c="w-3.5 h-3.5" />
+                    Disponible
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1">
+                    <Ico n="alertTriangle" c="w-3.5 h-3.5" />
+                    En Mantenimiento
+                  </span>
+                )}
               </span>
 
               <div className="absolute bottom-3.5 left-4 right-4">
                 <span className="text-[10px] font-mono uppercase tracking-widest font-bold text-teal-300">
-                  ✦ ÁREA RESIDENCIAL EXCLUSIVA
+                  ÁREA RESIDENCIAL EXCLUSIVA
                 </span>
                 <h4 className="font-display font-extrabold text-white text-lg leading-tight drop-shadow-sm mt-0.5">
                   {a.name}
@@ -235,13 +245,17 @@ export function AmenityCatalog({
               <div className="space-y-2 text-xs bg-slate-50/70 p-3 rounded-xl border border-slate-100">
                 <div className="flex justify-between items-center py-0.5">
                   <span className="text-slate-500 font-medium">Capacidad máxima:</span>
-                  <span className="font-bold text-slate-800 bg-white px-2.5 py-0.5 rounded-md border border-slate-200/60 shadow-2xs">
-                    👥 Hasta {a.capacity} pers.
+                  <span className="font-bold text-slate-800 bg-white px-2.5 py-0.5 rounded-md border border-slate-200/60 shadow-2xs inline-flex items-center gap-1.5">
+                    <Ico n="users" c="w-3.5 h-3.5 text-slate-400" />
+                    Hasta {a.capacity} pers.
                   </span>
                 </div>
                 <div className="flex justify-between items-center py-0.5">
                   <span className="text-slate-500 font-medium">Horario de servicio:</span>
-                  <span className="font-mono font-semibold text-slate-700">⏰ {a.hours}</span>
+                  <span className="font-mono font-semibold text-slate-700 inline-flex items-center gap-1.5">
+                    <Ico n="clock" c="w-3.5 h-3.5 text-slate-400" />
+                    {a.hours}
+                  </span>
                 </div>
                 <div className="flex justify-between items-center py-0.5 pt-1 border-t border-slate-200/60">
                   <span className="text-slate-500 font-medium">Cuota de reservación:</span>
@@ -588,7 +602,7 @@ export function AmenityCatalog({
                   <div className="flex justify-between items-start">
                     <div>
                       <span className="text-[10px] font-mono text-teal-300 uppercase tracking-widest font-bold">
-                        ✦ RESUMEN DE RESERVACIÓN
+                        RESUMEN DE RESERVACIÓN
                       </span>
                       <h4 className="font-display font-bold text-lg leading-tight mt-0.5">{bookingAmenity.name}</h4>
                     </div>
@@ -600,25 +614,38 @@ export function AmenityCatalog({
                   <div className="grid grid-cols-2 gap-3 text-xs pt-3 border-t border-white/10">
                     <div>
                       <span className="text-white/60 text-[10px] uppercase font-bold">Fecha Apartada:</span>
-                      <p className="font-semibold text-white mt-0.5 font-mono">📅 {form.date}</p>
+                      <p className="font-semibold text-white mt-0.5 font-mono inline-flex items-center gap-1.5">
+                        <Ico n="calendar" c="w-3.5 h-3.5 text-teal-300" />
+                        {form.date}
+                      </p>
                     </div>
                     <div>
                       <span className="text-white/60 text-[10px] uppercase font-bold">Horario:</span>
-                      <p className="font-semibold text-white mt-0.5 font-mono">⏰ {form.startTime} – {form.endTime}</p>
+                      <p className="font-semibold text-white mt-0.5 font-mono inline-flex items-center gap-1.5">
+                        <Ico n="clock" c="w-3.5 h-3.5 text-teal-300" />
+                        {form.startTime} – {form.endTime}
+                      </p>
                     </div>
                     <div>
                       <span className="text-white/60 text-[10px] uppercase font-bold">Titular / Unidad:</span>
-                      <p className="font-semibold text-white mt-0.5">{form.resident} ({form.unit})</p>
+                      <p className="font-semibold text-white mt-0.5 inline-flex items-center gap-1.5">
+                        <Ico n="user" c="w-3.5 h-3.5 text-teal-300" />
+                        {form.resident} ({form.unit})
+                      </p>
                     </div>
                     <div>
                       <span className="text-white/60 text-[10px] uppercase font-bold">Aforo Invitados:</span>
-                      <p className="font-semibold text-white mt-0.5">👥 {form.guests} personas</p>
+                      <p className="font-semibold text-white mt-0.5 inline-flex items-center gap-1.5">
+                        <Ico n="users" c="w-3.5 h-3.5 text-teal-300" />
+                        {form.guests} personas
+                      </p>
                     </div>
                   </div>
 
                   {bookingAmenity.deposit && bookingAmenity.deposit !== 'No aplica' && (
-                    <p className="text-[11px] text-amber-200 bg-amber-500/10 p-2.5 rounded-xl border border-amber-400/20 leading-relaxed">
-                      🛡️ Depósito en garantía: <strong>{bookingAmenity.deposit}</strong> (Reembolsable tras el evento)
+                    <p className="text-[11px] text-amber-200 bg-amber-500/10 p-2.5 rounded-xl border border-amber-400/20 leading-relaxed inline-flex items-center gap-1.5 w-full">
+                      <Ico n="shield" c="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                      <span>Depósito en garantía: <strong>{bookingAmenity.deposit}</strong> (Reembolsable tras el evento)</span>
                     </p>
                   )}
                 </div>

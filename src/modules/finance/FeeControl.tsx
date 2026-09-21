@@ -191,8 +191,9 @@ export function FeeControl() {
                         Registrar Pago
                       </button>
                     ) : (
-                      <span className="text-xs font-semibold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-100 whitespace-nowrap">
-                        ✓ Conciliado
+                      <span className="text-xs font-semibold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-100 whitespace-nowrap inline-flex items-center gap-1">
+                        <Ico n="check" c="w-3.5 h-3.5 text-teal-700" />
+                        Conciliado
                       </span>
                     )}
                   </td>

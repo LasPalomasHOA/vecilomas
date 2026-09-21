@@ -230,8 +230,9 @@ export function ResidentMyAccountView({
                     </h4>
                   </div>
                   {copiedField && (
-                    <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200 animate-fade-in whitespace-nowrap">
-                      ✓ ¡{copiedField} copiado!
+                    <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200 animate-fade-in whitespace-nowrap inline-flex items-center gap-1">
+                      <Ico n="check" c="w-3.5 h-3.5 text-emerald-700" />
+                      ¡{copiedField} copiado!
                     </span>
                   )}
                 </div>
@@ -329,9 +330,17 @@ export function ResidentMyAccountView({
                           <Badge text={t.status} />
                         </div>
                         <p className="font-bold text-slate-900 text-sm sm:text-base mb-1">{t.issue}</p>
-                        <p className="text-xs text-slate-500 font-medium">
-                          📍 {t.location} · 📅 {t.date}
-                          {t.assignedTo ? ` · Asignado a: ${t.assignedTo}` : ''}
+                        <p className="text-xs text-slate-500 font-medium inline-flex items-center gap-1.5 flex-wrap">
+                          <span className="inline-flex items-center gap-1">
+                            <Ico n="mapPin" c="w-3.5 h-3.5 text-slate-400" />
+                            {t.location}
+                          </span>
+                          <span>·</span>
+                          <span className="inline-flex items-center gap-1">
+                            <Ico n="calendar" c="w-3.5 h-3.5 text-slate-400" />
+                            {t.date}
+                          </span>
+                          {t.assignedTo ? <span>· Asignado a: {t.assignedTo}</span> : ''}
                         </p>
 
                         {/* Interactive Timeline Progress Bar */}
@@ -357,7 +366,7 @@ export function ResidentMyAccountView({
                                 ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
                                 : 'bg-slate-50 border-slate-200 text-slate-400'
                             }`}>
-                              <span>3. Resuelto ✓</span>
+                              <span>3. Resuelto</span>
                             </div>
                           </div>
                         </div>

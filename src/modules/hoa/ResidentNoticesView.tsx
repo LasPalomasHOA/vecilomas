@@ -99,9 +99,9 @@ export function ResidentNoticesView({ unit = 'A-101' }: ResidentNoticesViewProps
               {search && (
                 <button
                   onClick={() => setSearch('')}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 text-xs p-1 cursor-pointer"
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
                 >
-                  ✕
+                  <Ico n="x" c="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
@@ -131,19 +131,24 @@ export function ResidentNoticesView({ unit = 'A-101' }: ResidentNoticesViewProps
                     {/* Header row */}
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="inline-flex items-center gap-1 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-md">
-                          ⚡ Urgente
+                        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-amber-800 bg-amber-50 border border-amber-200 px-2.5 py-0.5 rounded-md">
+                          <Ico n="zap" c="w-3.5 h-3.5 text-amber-600" />
+                          Urgente
                         </span>
                         <Badge text={n.type} />
                         {n.audience && (
-                          <span className="text-[11px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-                            👥 {n.audience}
+                          <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                            <Ico n="users" c="w-3 h-3 text-slate-400" />
+                            {n.audience}
                           </span>
                         )}
                       </div>
 
                       <div className="flex items-center gap-2 text-xs font-mono text-slate-400 shrink-0">
-                        <span>📅 {n.date}</span>
+                        <span className="inline-flex items-center gap-1">
+                          <Ico n="calendar" c="w-3.5 h-3.5 text-slate-400" />
+                          {n.date}
+                        </span>
                         {n.expiresAt && (
                           <span className="text-amber-700 bg-amber-50/80 px-2 py-0.5 rounded text-[11px]">
                             Vigencia: {n.expiresAt}
@@ -225,24 +230,30 @@ export function ResidentNoticesView({ unit = 'A-101' }: ResidentNoticesViewProps
                       <div className="flex flex-wrap items-center justify-between gap-2">
                         <div className="flex flex-wrap items-center gap-2">
                           {n.urgent ? (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-slate-600 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
-                              ⚡ Urgente
+                            <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                              <Ico n="zap" c="w-3.5 h-3.5 text-amber-600" />
+                              Urgente
                             </span>
                           ) : n.pinned ? (
-                            <span className="inline-flex items-center gap-1 text-[11px] font-bold text-purple-800 bg-purple-100 border border-purple-200 px-2.5 py-0.5 rounded-md">
-                              📌 Fijado
+                            <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-purple-800 bg-purple-100 border border-purple-200 px-2.5 py-0.5 rounded-md">
+                              <Ico n="pin" c="w-3.5 h-3.5 text-purple-600" />
+                              Fijado
                             </span>
                           ) : null}
                           <Badge text={n.type} />
                           {n.audience && (
-                            <span className="text-[11px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
-                              👥 {n.audience}
+                            <span className="inline-flex items-center gap-1 text-[11px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-md">
+                              <Ico n="users" c="w-3 h-3 text-slate-400" />
+                              {n.audience}
                             </span>
                           )}
                         </div>
 
                         <div className="flex items-center gap-2 text-xs text-slate-400 font-mono shrink-0">
-                          <span>📅 {n.date}</span>
+                          <span className="inline-flex items-center gap-1">
+                            <Ico n="calendar" c="w-3.5 h-3.5 text-slate-400" />
+                            {n.date}
+                          </span>
                           {n.expiresAt && (
                             <span className="text-slate-600 bg-slate-100 px-2 py-0.5 rounded text-[11px]">
                               Vigencia: {n.expiresAt}

@@ -167,12 +167,16 @@ export function InteractiveCalendar({
                   <img src={a.img} alt={a.name} className="w-12 h-12 sm:w-13 sm:h-13 rounded-xl object-cover shrink-0" />
                   <div className="flex-1 min-w-0">
                     <p className="font-bold text-slate-900 text-sm leading-tight truncate">{a.name}</p>
-                    <p className="text-xs text-slate-500 mt-0.5 font-medium whitespace-nowrap truncate">
-                      👥 {a.capacity} pers · <span className="font-semibold text-teal-700">{a.rate}</span>
+                    <p className="text-xs text-slate-500 mt-0.5 font-medium whitespace-nowrap truncate inline-flex items-center gap-1">
+                      <Ico n="users" c="w-3.5 h-3.5 text-slate-400" />
+                      <span>{a.capacity} pers</span>
+                      <span className="text-slate-300">·</span>
+                      <span className="font-semibold text-teal-700">{a.rate}</span>
                     </p>
                     {!a.available && (
-                      <span className="text-[10px] text-amber-700 font-semibold bg-amber-50 px-1.5 py-0.2 rounded mt-1 inline-block">
-                        ⚠️ En Mantenimiento
+                      <span className="text-[10px] text-amber-700 font-semibold bg-amber-50 px-1.5 py-0.5 rounded mt-1 inline-flex items-center gap-1">
+                        <Ico n="alertTriangle" c="w-3 h-3 text-amber-600" />
+                        En Mantenimiento
                       </span>
                     )}
                   </div>
@@ -292,12 +296,19 @@ export function InteractiveCalendar({
               </span>
             </div>
             <div className="grid grid-cols-2 gap-2 text-white/80 pt-1">
-              <p>📅 Fecha: <strong className="text-white font-mono">{selectedDate}</strong></p>
-              <p>⏰ Horario: <strong className="text-white font-mono">{selectedSlot}</strong></p>
+              <p className="inline-flex items-center gap-1.5">
+                <Ico n="calendar" c="w-3.5 h-3.5 text-teal-300" />
+                <span>Fecha: <strong className="text-white font-mono">{selectedDate}</strong></span>
+              </p>
+              <p className="inline-flex items-center gap-1.5">
+                <Ico n="clock" c="w-3.5 h-3.5 text-teal-300" />
+                <span>Horario: <strong className="text-white font-mono">{selectedSlot}</strong></span>
+              </p>
             </div>
             {activeAmenity.deposit && activeAmenity.deposit !== 'No aplica' && (
-              <p className="text-[11px] text-amber-200 bg-amber-500/10 p-2 rounded-lg border border-amber-400/20">
-                🛡️ Depósito en garantía: <strong>{activeAmenity.deposit}</strong>
+              <p className="text-[11px] text-amber-200 bg-amber-500/10 p-2 rounded-lg border border-amber-400/20 inline-flex items-center gap-1.5 w-full">
+                <Ico n="shield" c="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                <span>Depósito en garantía: <strong>{activeAmenity.deposit}</strong></span>
               </p>
             )}
           </div>
@@ -358,7 +369,7 @@ export function InteractiveCalendar({
 
           <div className="flex gap-3 pt-3">
             <Btn type="submit" className="flex-1 font-bold shadow-md">
-              Confirmar Reservación ✓
+              Confirmar Reservación
             </Btn>
             <Btn variant="ghost" onClick={() => setModalOpen(false)}>
               Cancelar

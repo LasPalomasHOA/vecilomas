@@ -53,11 +53,11 @@ export function ResidentAmenitiesView({ unit, name }: ResidentAmenitiesViewProps
   function handleShareWhatsApp(b: Booking) {
     const text = encodeURIComponent(
       `¡Hola! Te comparto el pase de acceso para nuestra reunión en VeciLomas:\n\n` +
-      `📍 Espacio: ${b.amenity}\n` +
-      `📅 Fecha: ${b.date}\n` +
-      `⏰ Horario: ${b.time}\n` +
-      `👥 Anfitrión: ${b.resident} (Unidad ${b.unit})\n` +
-      `🔑 Clave de Pase: ${b.qrPassCode || 'N/A'}\n\n` +
+      `• Espacio: ${b.amenity}\n` +
+      `• Fecha: ${b.date}\n` +
+      `• Horario: ${b.time}\n` +
+      `• Anfitrión: ${b.resident} (Unidad ${b.unit})\n` +
+      `• Clave de Pase: ${b.qrPassCode || 'N/A'}\n\n` +
       `Muestra este código o proporciona la clave al personal de seguridad en caseta.`
     )
     window.open(`https://wa.me/?text=${text}`, '_blank')
@@ -204,15 +204,24 @@ export function ResidentAmenitiesView({ unit, name }: ResidentAmenitiesViewProps
                           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 my-3 p-3 rounded-xl bg-slate-50/70 border border-slate-100 text-xs">
                             <div>
                               <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Fecha</p>
-                              <p className="font-semibold text-slate-800 mt-0.5">📅 {b.date}</p>
+                              <p className="font-semibold text-slate-800 mt-0.5 inline-flex items-center gap-1.5">
+                                <Ico n="calendar" c="w-3.5 h-3.5 text-slate-400" />
+                                {b.date}
+                              </p>
                             </div>
                             <div>
                               <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Horario</p>
-                              <p className="font-semibold text-slate-800 mt-0.5">⏰ {b.time}</p>
+                              <p className="font-semibold text-slate-800 mt-0.5 inline-flex items-center gap-1.5">
+                                <Ico n="clock" c="w-3.5 h-3.5 text-slate-400" />
+                                {b.time}
+                              </p>
                             </div>
                             <div>
                               <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Aforo</p>
-                              <p className="font-semibold text-slate-800 mt-0.5">👥 {b.guests} personas</p>
+                              <p className="font-semibold text-slate-800 mt-0.5 inline-flex items-center gap-1.5">
+                                <Ico n="users" c="w-3.5 h-3.5 text-slate-400" />
+                                {b.guests} personas
+                              </p>
                             </div>
                             <div>
                               <p className="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Cuota / Depósito</p>
@@ -361,26 +370,35 @@ export function ResidentAmenitiesView({ unit, name }: ResidentAmenitiesViewProps
 
             {/* Pass details summary */}
             <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 space-y-2.5 text-xs text-slate-700">
-              <div className="flex justify-between">
-                <span className="text-slate-400">📅 Fecha:</span>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400 inline-flex items-center gap-1.5">
+                  <Ico n="calendar" c="w-3.5 h-3.5 text-slate-400" /> Fecha:
+                </span>
                 <span className="font-semibold text-slate-900">{selectedPass.date}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">⏰ Horario reservado:</span>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400 inline-flex items-center gap-1.5">
+                  <Ico n="clock" c="w-3.5 h-3.5 text-slate-400" /> Horario reservado:
+                </span>
                 <span className="font-semibold text-slate-900">{selectedPass.time}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">👤 Residente / Anfitrión:</span>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400 inline-flex items-center gap-1.5">
+                  <Ico n="user" c="w-3.5 h-3.5 text-slate-400" /> Residente / Anfitrión:
+                </span>
                 <span className="font-semibold text-slate-900">{selectedPass.resident} (Depto {selectedPass.unit})</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-slate-400">👥 Capacidad autorizada:</span>
+              <div className="flex justify-between items-center">
+                <span className="text-slate-400 inline-flex items-center gap-1.5">
+                  <Ico n="users" c="w-3.5 h-3.5 text-slate-400" /> Capacidad autorizada:
+                </span>
                 <span className="font-semibold text-slate-900">Hasta {selectedPass.guests} invitados</span>
               </div>
             </div>
 
-            <p className="text-[11px] text-slate-400 leading-relaxed text-center">
-              🛡️ El guardia de caseta escaneará este código QR para agilizar la entrada de tus invitados hacia el área de amenidades.
+            <p className="text-[11px] text-slate-400 leading-relaxed text-center inline-flex items-center justify-center gap-1.5 w-full">
+              <Ico n="shield" c="w-3.5 h-3.5 text-teal-600 shrink-0" />
+              <span>El guardia de caseta escaneará este código QR para agilizar la entrada de tus invitados hacia el área de amenidades.</span>
             </p>
 
             <div className="flex gap-2">

@@ -303,7 +303,7 @@ export function AmenityFormModal({
               available ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-slate-200 text-slate-700'
             }`}
           >
-            {available ? '✓ Habilitada' : 'En Mantenimiento'}
+            {available ? 'Habilitada' : 'En Mantenimiento'}
           </button>
         </div>
 

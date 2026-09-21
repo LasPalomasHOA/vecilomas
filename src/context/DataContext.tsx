@@ -45,6 +45,7 @@ interface DataContextType {
   // Module C: Access & Visits
   accessPasses: AccessPass[]
   visits: VisitRecord[]
+  addAccessPass: (p: Omit<AccessPass, 'id' | 'createdAt'>) => AccessPass
   generateAccessPass: (data: { visitor: string; host: string; unit: string; date: string; time: string; type: VisitType }) => AccessPass
   validateQRCode: (code: string) => QRValidationResult
   checkInVisit: (passCodeOrManual: { visitor: string; host: string; unit: string; type?: VisitType; plate?: string }) => void
@@ -193,6 +194,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
   // ── Handlers C ─────────────────────────────────────────────────────────────
+  function addAccessPass(p: Omit<AccessPass, 'id' | 'createdAt'>) {
+    const newPass: AccessPass = {
+      id: `PASS-00${accessPasses.length + 1}`,
+      createdAt: new Date().toISOString(),
+      ...p,
+    }
+    setAccessPasses(prev => [newPass, ...prev])
+    return newPass
+  }
+
   function generateAccessPass({ visitor, host, unit, date, time, type }: { visitor: string; host: string; unit: string; date: string; time: string; type: VisitType }) {
     const visitorPrefix = (visitor.slice(0, 3) || 'VIS').toUpperCase()
     const cleanUnit = (unit || 'A101').replace(/[^a-zA-Z0-9]/g, '')
@@ -205,11 +216,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
       visitor,
       host,
       unit,
-      date,
-      time,
-      type,
+      validDate: date,
+      validTime: time,
+      visitType: type,
       status: 'Activo',
-      qrCodeData: code,
       createdAt: new Date().toISOString(),
     }
     setAccessPasses(prev => [newPass, ...prev])
@@ -231,7 +241,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         message: 'El código QR ha expirado. Contacta al residente anfitrión.',
       }
     }
-    if (pass.status === 'Usado') {
+    if (pass.status === 'Utilizado') {
       return {
         valid: false,
         pass,
@@ -255,8 +265,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
       host: data.host,
       unit: data.unit,
       date: dateStr,
-      entryTime: timeStr,
-      status: 'En Sitio',
+      entry: timeStr,
+      exit: null,
+      status: 'En Instalaciones',
       type: data.type || 'Familiar',
       plate: data.plate || undefined,
     }
@@ -267,7 +278,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const now = new Date()
     const timeStr = now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
     setVisits(prev =>
-      prev.map(v => (v.id === visitId ? { ...v, exitTime: timeStr, status: 'Completada' as const } : v))
+      prev.map(v => (v.id === visitId ? { ...v, exit: timeStr, status: 'Completada' as const } : v))
     )
   }
 
@@ -285,7 +296,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const newTicket: MaintenanceTicket = {
       id: newId,
       date: today,
-      status: 'Abierto',
+      status: 'Pendiente',
       ...t,
     }
     setTickets(prev => [newTicket, ...prev])
@@ -326,6 +337,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         updateBookingStatus,
         accessPasses,
         visits,
+        addAccessPass,
         generateAccessPass,
         validateQRCode,
         checkInVisit,

@@ -124,24 +124,33 @@ export function QRPassGenerator({
               onClick={() => applyPreset('delivery')}
               className="p-2.5 rounded-xl border border-teal-200 bg-teal-50/70 hover:bg-teal-100/70 text-left transition-all cursor-pointer group"
             >
-              <p className="text-xs font-bold text-teal-950">🛵 Repartidor</p>
-              <p className="text-[10px] text-teal-700">Vigencia 2 hrs</p>
+              <p className="text-xs font-bold text-teal-950 inline-flex items-center gap-1.5">
+                <Ico n="truck" c="w-3.5 h-3.5 text-teal-700" />
+                Repartidor
+              </p>
+              <p className="text-[10px] text-teal-700 mt-0.5">Vigencia 2 hrs</p>
             </button>
             <button
               type="button"
               onClick={() => applyPreset('family')}
               className="p-2.5 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100/70 text-left transition-all cursor-pointer group"
             >
-              <p className="text-xs font-bold text-indigo-950">🚗 Familiar</p>
-              <p className="text-[10px] text-indigo-700">Todo el día</p>
+              <p className="text-xs font-bold text-indigo-950 inline-flex items-center gap-1.5">
+                <Ico n="car" c="w-3.5 h-3.5 text-indigo-700" />
+                Familiar
+              </p>
+              <p className="text-[10px] text-indigo-700 mt-0.5">Todo el día</p>
             </button>
             <button
               type="button"
               onClick={() => applyPreset('service')}
               className="p-2.5 rounded-xl border border-amber-200 bg-amber-50/70 hover:bg-amber-100/70 text-left transition-all cursor-pointer group"
             >
-              <p className="text-xs font-bold text-amber-950">🛠️ Técnico</p>
-              <p className="text-[10px] text-amber-700">Jornada 8 hrs</p>
+              <p className="text-xs font-bold text-amber-950 inline-flex items-center gap-1.5">
+                <Ico n="tool" c="w-3.5 h-3.5 text-amber-700" />
+                Técnico
+              </p>
+              <p className="text-[10px] text-amber-700 mt-0.5">Jornada 8 hrs</p>
             </button>
           </div>
         </div>
@@ -304,8 +313,9 @@ export function QRPassGenerator({
               </div>
 
               <div className="w-full p-2.5 rounded-xl bg-teal-50/70 border border-teal-100 mt-2 text-center">
-                <p className="text-xs text-teal-900 font-semibold">
-                  📅 Vigencia: <strong>{createdPass.validDate}</strong> a las <strong>{createdPass.validTime} hrs</strong>
+                <p className="text-xs text-teal-900 font-semibold inline-flex items-center justify-center gap-1.5 w-full">
+                  <Ico n="calendar" c="w-3.5 h-3.5 text-teal-700 shrink-0" />
+                  <span>Vigencia: <strong>{createdPass.validDate}</strong> a las <strong>{createdPass.validTime} hrs</strong></span>
                 </p>
               </div>
 
