@@ -289,7 +289,7 @@ export default async function handler(req: CustomRequest, res: CustomResponse) {
 
     if (pathname === '/api/finance/tickets') {
       if (method === 'GET') {
-        const tickets = await FinanceRepository.getTickets(queryParams.condoId)
+        const tickets = await FinanceRepository.getMaintenanceTickets(queryParams.condoId)
         return sendJson(200, { success: true, data: tickets })
       }
       if (method === 'POST') {
@@ -301,7 +301,7 @@ export default async function handler(req: CustomRequest, res: CustomResponse) {
     const matchTicketStatus = pathname.match(/^\/api\/finance\/tickets\/([a-zA-Z0-9_-]+)\/status$/)
     if (matchTicketStatus && method === 'PATCH') {
       const id = matchTicketStatus[1]
-      const updated = await FinanceRepository.updateTicketStatus(id, body.status, body.notes)
+      const updated = await FinanceRepository.updateTicketStatus(id, body.status, body.assignedTo || body.notes)
       return sendJson(200, { success: true, data: updated })
     }
 
