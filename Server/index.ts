@@ -46,34 +46,40 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
   })
 })
 
-const server = app.listen(PORT, async () => {
-  console.log('====================================================')
-  console.log(`🚀 VeciLomas API Server corriendo en http://localhost:${PORT}`)
-  console.log(`📡 Endpoints API disponibles en http://localhost:${PORT}/api`)
-  console.log('----------------------------------------------------')
-  
-  // Probar conexión a la base de datos de inmediato
-  const dbHealth = await checkDbConnection()
-  if (dbHealth.ok) {
-    console.log(`✅ [Base de Datos] ¡Conexión a PostgreSQL exitosa!`)
-    console.log(`🗄️  [Base de datos]: ${dbHealth.database} | [Esquema]: ${dbHealth.schema} | [Latencia]: ${dbHealth.latencyMs}ms`)
-  } else {
-    console.log(`⚠️  [Base de Datos] No se pudo conectar a PostgreSQL:`)
-    console.log(`   ${dbHealth.error}`)
-    console.log(`💡 [Nota]: El servidor sigue activo. Configura POSTGRES_URL / DATABASE_URL cuando estés listo.`)
-  }
-  console.log('====================================================\n')
-})
+export { app }
+export default app
 
-// Graceful Shutdown
-const shutdown = async () => {
-  console.log('\n🛑 Cerrando servidor y conexiones de base de datos...')
-  server.close(async () => {
-    await pool.end()
-    console.log('✅ Pool de conexiones cerrado. Proceso terminado.')
-    process.exit(0)
+if (!process.env.VERCEL) {
+  const server = app.listen(PORT, async () => {
+    console.log('====================================================')
+    console.log(`🚀 VeciLomas API Server corriendo en http://localhost:${PORT}`)
+    console.log(`📡 Endpoints API disponibles en http://localhost:${PORT}/api`)
+    console.log('----------------------------------------------------')
+    
+    // Probar conexión a la base de datos de inmediato
+    const dbHealth = await checkDbConnection()
+    if (dbHealth.ok) {
+      console.log(`✅ [Base de Datos] ¡Conexión a PostgreSQL exitosa!`)
+      console.log(`🗄️  [Base de datos]: ${dbHealth.database} | [Esquema]: ${dbHealth.schema} | [Latencia]: ${dbHealth.latencyMs}ms`)
+    } else {
+      console.log(`⚠️  [Base de Datos] No se pudo conectar a PostgreSQL:`)
+      console.log(`   ${dbHealth.error}`)
+      console.log(`💡 [Nota]: El servidor sigue activo. Configura POSTGRES_URL / DATABASE_URL cuando estés listo.`)
+    }
+    console.log('====================================================\n')
   })
+
+  // Graceful Shutdown
+  const shutdown = async () => {
+    console.log('\n🛑 Cerrando servidor y conexiones de base de datos...')
+    server.close(async () => {
+      await pool.end()
+      console.log('✅ Pool de conexiones cerrado. Proceso terminado.')
+      process.exit(0)
+    })
+  }
+
+  process.on('SIGINT', shutdown)
+  process.on('SIGTERM', shutdown)
 }
 
-process.on('SIGINT', shutdown)
-process.on('SIGTERM', shutdown)
