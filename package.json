@@ -8,7 +8,7 @@
     "server": "tsx watch Server/index.ts",
     "db:seed": "tsx Server/scripts/seed.ts",
     "mobile": "npm --prefix mobile start",
-    "build": "vite build",
+    "build": "vite build && npx esbuild api/index.ts --bundle --platform=node --format=esm --packages=external --outfile=api/index.js",
     "preview": "vite preview",
     "format": "oxfmt"
   },
