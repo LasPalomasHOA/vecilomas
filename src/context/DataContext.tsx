@@ -35,6 +35,7 @@ interface DataContextType {
   notices: Notice[]
   addNotice: (n: Omit<Notice, 'id' | 'date'>) => Promise<void>
   deleteNotice: (id: number) => Promise<void>
+  acknowledgeNotice: (noticeId: number, unitOrEmail: string) => void
   documents: CommunityDocument[]
   addDocument: (d: Omit<CommunityDocument, 'id' | 'date'>) => Promise<void>
   deleteDocument: (id: number) => Promise<void>
@@ -47,13 +48,16 @@ interface DataContextType {
   addAmenity: (a: Omit<Amenity, 'id'>) => Promise<any>
   updateAmenity: (a: Amenity) => Promise<void>
   deleteAmenity: (id: number) => Promise<void>
+  toggleAmenityAvailability: (id: number) => void
+  toggleAmenityMaintenance: (amenityId: number, note?: string) => void
   bookings: Booking[]
   addBooking: (b: Omit<Booking, 'id' | 'status'>) => Promise<void>
-  updateBookingStatus: (id: number, status: BookingStatus) => Promise<void>
+  updateBookingStatus: (id: number, status: BookingStatus, rejectionReason?: string) => Promise<void>
 
   // Module C: Access & Visits
   accessPasses: AccessPass[]
   visits: VisitRecord[]
+  addAccessPass: (p: Omit<AccessPass, 'id' | 'createdAt'>) => AccessPass
   generateAccessPass: (data: { visitor: string; host: string; unit: string; date: string; time: string; type: VisitType }) => AccessPass
   validateQRCode: (code: string) => QRValidationResult
   checkInVisit: (passCodeOrManual: { visitor: string; host: string; unit: string; type?: VisitType; plate?: string }) => void
@@ -298,10 +302,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
         isUrgent: n.urgent || false,
       })
       const newId = created?.id || (notices.length > 0 ? Math.max(...notices.map(x => x.id)) + 1 : 1)
-      setNotices(prev => [{ id: newId, date: today, ...n }, ...prev])
+      setNotices(prev => [{ id: newId, date: today, acknowledgments: 0, readBy: [], ...n }, ...prev])
     } catch (err) {
       const newId = notices.length > 0 ? Math.max(...notices.map(x => x.id)) + 1 : 1
-      setNotices(prev => [{ id: newId, date: today, ...n }, ...prev])
+      setNotices(prev => [{ id: newId, date: today, acknowledgments: 0, readBy: [], ...n }, ...prev])
     }
   }
 
@@ -310,6 +314,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
       await ApiClient.hoa.deleteNotice(id)
     } catch (err) {}
     setNotices(prev => prev.filter(n => n.id !== id))
+  }
+
+  function acknowledgeNotice(noticeId: number, unitOrEmail: string) {
+    setNotices(prev =>
+      prev.map(n => {
+        if (n.id !== noticeId) return n
+        const currentReadBy = n.readBy || []
+        if (currentReadBy.includes(unitOrEmail)) return n
+        return {
+          ...n,
+          acknowledgments: (n.acknowledgments || 0) + 1,
+          readBy: [...currentReadBy, unitOrEmail],
+        }
+      })
+    )
   }
 
   async function addDocument(d: Omit<CommunityDocument, 'id' | 'date'>) {
@@ -428,8 +447,31 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  function toggleAmenityAvailability(id: number) {
+    setAmenities(prev =>
+      prev.map(a => (a.id === id ? { ...a, available: !a.available } : a))
+    )
+  }
+
+  function toggleAmenityMaintenance(amenityId: number, note?: string) {
+    setAmenities(prev =>
+      prev.map(a =>
+        a.id === amenityId
+          ? {
+              ...a,
+              available: !a.available,
+              maintenanceNote: !a.available ? undefined : note || 'Mantenimiento preventivo programado',
+            }
+          : a
+      )
+    )
+  }
+
   async function addBooking(b: Omit<Booking, 'id' | 'status'>) {
     const activeCondoId = selectedCondominium?.id || condominiums[0]?.id || 1
+    const randCode = Math.random().toString(36).substring(2, 6).toUpperCase()
+    const cleanUnit = (b.unit || 'A101').replace(/[^a-zA-Z0-9]/g, '')
+    const qrPassCode = `AMN-${cleanUnit}-${randCode}`
     try {
       await ApiClient.amenities.createBooking({
         amenityId: b.amenityId || 1,
@@ -443,23 +485,43 @@ export function DataProvider({ children }: { children: ReactNode }) {
       if (Array.isArray(list)) setBookings(list)
     } catch (err) {
       const newId = bookings.length > 0 ? Math.max(...bookings.map(x => x.id)) + 1 : 1
-      const newBooking: Booking = { id: newId, status: 'Pendiente', ...b }
+      const newBooking: Booking = { id: newId, status: 'Pendiente', qrPassCode, createdAt: new Date().toISOString(), ...b }
       setBookings(prev => [newBooking, ...prev])
     }
   }
 
-  async function updateBookingStatus(id: number, status: BookingStatus) {
+  async function updateBookingStatus(id: number, status: BookingStatus, rejectionReason?: string) {
     const activeCondoId = selectedCondominium?.id || condominiums[0]?.id || 1
     try {
       await ApiClient.amenities.updateStatus(id, status)
       const list = await ApiClient.amenities.getBookings(undefined, activeCondoId)
       if (Array.isArray(list)) setBookings(list)
     } catch (err) {
-      setBookings(prev => prev.map(b => (b.id === id ? { ...b, status } : b)))
+      setBookings(prev =>
+        prev.map(b =>
+          b.id === id
+            ? {
+                ...b,
+                status,
+                ...(rejectionReason ? { rejectionReason } : {}),
+              }
+            : b
+        )
+      )
     }
   }
 
   // ── Handlers C: Access ─────────────────────────────────────────────────────
+  function addAccessPass(p: Omit<AccessPass, 'id' | 'createdAt'>) {
+    const newPass: AccessPass = {
+      id: `PASS-00${accessPasses.length + 1}`,
+      createdAt: new Date().toISOString(),
+      ...p,
+    }
+    setAccessPasses(prev => [newPass, ...prev])
+    return newPass
+  }
+
   function generateAccessPass({ visitor, host, unit, date, time, type }: { visitor: string; host: string; unit: string; date: string; time: string; type: VisitType }) {
     const activeCondoId = selectedCondominium?.id || condominiums[0]?.id || 1
     const visitorPrefix = (visitor.slice(0, 3) || 'VIS').toUpperCase()
@@ -501,17 +563,20 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
   function validateQRCode(code: string): QRValidationResult {
-    const trimmed = code.trim().toUpperCase()
-    const found = accessPasses.find(p => p.code.toUpperCase() === trimmed)
-    if (found) {
-      if (found.status === 'Expirado') {
-        return { valid: false, pass: found, message: 'El pase de acceso ha expirado.' }
+    const trimmed = (code || '').trim().toUpperCase()
+    const pass = accessPasses.find(p => p.code.toUpperCase() === trimmed)
+    if (pass) {
+      if (pass.status === 'Expirado') {
+        return { valid: false, pass, message: 'El código QR ha expirado. Contacta al residente anfitrión.' }
       }
-      return { valid: true, pass: found, message: 'Pase digital válido y verificado.' }
+      if (pass.status === 'Utilizado') {
+        return { valid: false, pass, message: 'Este pase de acceso de un solo uso ya fue utilizado previamente.' }
+      }
+      return { valid: true, pass, message: 'Pase de acceso válido. Acceso autorizado.' }
     }
     if (trimmed.startsWith('VCN-')) {
       const parts = trimmed.split('-')
-      const mockPass: AccessPass = {
+      const livePass: AccessPass = {
         id: 'PASS-LIVE',
         code: trimmed,
         visitor: parts[1] ? `Visitante (${parts[1]})` : 'Invitado Registrado',
@@ -523,37 +588,38 @@ export function DataProvider({ children }: { children: ReactNode }) {
         status: 'Activo',
         createdAt: new Date().toISOString(),
       }
-      return { valid: true, pass: mockPass, message: 'Código QR verificado con éxito.' }
+      return { valid: true, pass: livePass, message: 'Código QR verificado con éxito en caseta.' }
     }
-    return { valid: false, message: 'Código no encontrado en el sistema o inválido.' }
+    return { valid: false, message: 'Código QR no registrado o inválido en el sistema.' }
   }
 
-  async function checkInVisit({ visitor, host, unit, type = 'Visita', plate }: { visitor: string; host: string; unit: string; type?: VisitType; plate?: string }) {
+  async function checkInVisit(data: { visitor: string; host: string; unit: string; type?: VisitType; plate?: string }) {
     const activeCondoId = selectedCondominium?.id || condominiums[0]?.id || 1
-    const nowTime = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
-    const newId = visits.length > 0 ? Math.max(...visits.map(x => x.id)) + 1 : 1
+    const now = new Date()
+    const dateStr = now.toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
+    const timeStr = now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
     const newVisit: VisitRecord = {
-      id: newId,
-      visitor,
-      host,
-      unit,
-      entry: nowTime,
+      id: visits.length > 0 ? Math.max(...visits.map(v => v.id)) + 1 : 1,
+      visitor: data.visitor,
+      host: data.host,
+      unit: data.unit,
+      date: dateStr,
+      entry: timeStr,
       exit: null,
-      date: 'Hoy',
       status: 'En Instalaciones',
-      type,
-      plate,
+      type: data.type || 'Visita',
+      plate: data.plate || undefined,
     }
     setVisits(prev => [newVisit, ...prev])
 
     try {
       await ApiClient.access.checkIn({
         condominiumId: activeCondoId,
-        unitNumber: unit,
-        visitorName: visitor,
-        hostName: host,
-        visitType: type,
-        vehiclePlate: plate,
+        unitNumber: data.unit,
+        visitorName: data.visitor,
+        hostName: data.host,
+        visitType: data.type,
+        vehiclePlate: data.plate,
       })
       const list = await ApiClient.access.getVisits(activeCondoId)
       if (Array.isArray(list)) setVisits(list)
@@ -564,9 +630,10 @@ export function DataProvider({ children }: { children: ReactNode }) {
 
   async function checkOutVisit(visitId: number) {
     const activeCondoId = selectedCondominium?.id || condominiums[0]?.id || 1
-    const nowTime = new Date().toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
+    const now = new Date()
+    const timeStr = now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })
     setVisits(prev =>
-      prev.map(v => (v.id === visitId ? { ...v, exit: nowTime, status: 'Completada' as const } : v))
+      prev.map(v => (v.id === visitId ? { ...v, exit: timeStr, status: 'Completada' as const } : v))
     )
 
     try {
@@ -579,18 +646,16 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
   // ── Handlers D: Finance ────────────────────────────────────────────────────
-  function registerFeePayment(feeId: string, method: string = 'Transferencia SPEI') {
-    const today = new Date().toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })
+  function registerFeePayment(id: string, method: string = 'Transferencia SPEI') {
+    const today = new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
     setFees(prev =>
-      prev.map(f =>
-        f.id === feeId ? { ...f, status: 'Pagada' as const, date: today, paymentMethod: method } : f
-      )
+      prev.map(f => (f.id === id ? { ...f, status: 'Pagada', date: today, paymentMethod: method } : f))
     )
   }
 
   function addTicket(t: Omit<MaintenanceTicket, 'id' | 'date' | 'status'>) {
     const today = new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
-    const newId = `TKT-${Math.floor(2025 + Math.random() * 50)}`
+    const newId = `TCK-00${tickets.length + 1}`
     const newTicket: MaintenanceTicket = {
       id: newId,
       date: today,
@@ -627,6 +692,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         notices,
         addNotice,
         deleteNotice,
+        acknowledgeNotice,
         documents,
         addDocument,
         deleteDocument,
@@ -637,11 +703,14 @@ export function DataProvider({ children }: { children: ReactNode }) {
         addAmenity,
         updateAmenity,
         deleteAmenity,
+        toggleAmenityAvailability,
+        toggleAmenityMaintenance,
         bookings,
         addBooking,
         updateBookingStatus,
         accessPasses,
         visits,
+        addAccessPass,
         generateAccessPass,
         validateQRCode,
         checkInVisit,

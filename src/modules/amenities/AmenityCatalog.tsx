@@ -2,59 +2,41 @@ import { useState } from 'react'
 import type { Amenity } from '@/types/amenities'
 import { BRAND_COLORS } from '@/types'
 import { useData } from '@/context/DataContext'
-import { GLASS_STYLES } from '@/components/common/Card'
 import Modal from '@/components/common/Modal'
-import Btn from '@/components/common/Button'
 import Ico from '@/components/common/Icons'
-import ImageUploader from '@/components/common/ImageUploader'
 import BookingRulesModal from '@/modules/amenities/BookingRulesModal'
+import AmenityFormModal from '@/modules/amenities/AmenityFormModal'
 
 interface AmenityCatalogProps {
   currentUnit?: string
   currentResidentName?: string
   onBookingSuccess?: () => void
+  isAdmin?: boolean
 }
 
 export function AmenityCatalog({
-  currentUnit = '',
-  currentResidentName = '',
+  currentUnit = 'A-101',
+  currentResidentName = 'Carlos Mendoza Ruiz',
   onBookingSuccess,
+  isAdmin = false,
 }: AmenityCatalogProps) {
-  const { amenities, addAmenity, updateAmenity, deleteAmenity, addBooking, residents } = useData()
+  const {
+    amenities,
+    addBooking,
+    residents,
+    addAmenity,
+    updateAmenity,
+    deleteAmenity,
+    toggleAmenityAvailability,
+  } = useData()
+
   const [selectedAmenityForRules, setSelectedAmenityForRules] = useState<Amenity | null>(null)
-  const [selectedAmenityForBooking, setSelectedAmenityForBooking] = useState<Amenity | null>(null)
-  const [createModalOpen, setCreateModalOpen] = useState(false)
-  const [editAmenityData, setEditAmenityData] = useState<Amenity | null>(null)
-  const [deleteAmenityId, setDeleteAmenityId] = useState<number | null>(null)
-  const [successToast, setSuccessToast] = useState<string | null>(null)
-
-  // New Amenity Form State
-  const [newForm, setNewForm] = useState({
-    name: '',
-    capacity: 20,
-    rate: 'Sin costo',
-    costAmount: 0,
-    hours: '08:00 – 22:00 hrs',
-    deposit: 'No aplica',
-    maxHoursPerBooking: 4,
-    img: '',
-    rules: 'Uso exclusivo para residentes y sus invitados\nCuidar las instalaciones y recoger basura\nRespetar el aforo y horario establecido',
-  })
-
-  // Edit Amenity Form State
-  const [editForm, setEditForm] = useState({
-    id: 0,
-    name: '',
-    capacity: 20,
-    rate: 'Sin costo',
-    costAmount: 0,
-    hours: '08:00 – 22:00 hrs',
-    deposit: 'No aplica',
-    maxHoursPerBooking: 4,
-    available: true,
-    img: '',
-    rules: '',
-  })
+  const [bookingAmenity, setBookingAmenity] = useState<Amenity | null>(null)
+  const [step, setStep] = useState<1 | 2 | 3>(1)
+  const [isFormModalOpen, setIsFormModalOpen] = useState(false)
+  const [editingAmenity, setEditingAmenity] = useState<Amenity | null>(null)
+  const [deletingAmenity, setDeletingAmenity] = useState<Amenity | null>(null)
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
 
   // Booking Form State
   const [form, setForm] = useState({
@@ -64,286 +46,341 @@ export function AmenityCatalog({
     startTime: '16:00',
     endTime: '20:00',
     guests: 10,
+    specialRequests: '',
+    acceptedRules: true,
   })
 
+  function showToast(msg: string) {
+    setToastMessage(msg)
+    setTimeout(() => setToastMessage(null), 3500)
+  }
+
   function handleOpenBooking(a: Amenity) {
-    setSelectedAmenityForBooking(a)
-    setForm(prev => ({ ...prev, guests: Math.min(prev.guests, a.capacity) }))
+    setBookingAmenity(a)
+    setStep(1)
+    setForm(prev => ({
+      ...prev,
+      resident: currentResidentName,
+      unit: currentUnit,
+      guests: Math.min(10, a.capacity),
+      acceptedRules: true,
+    }))
   }
 
   function handleConfirmBooking(e: React.FormEvent) {
     e.preventDefault()
-    if (!selectedAmenityForBooking) return
+    if (!bookingAmenity) return
 
     addBooking({
-      amenityId: selectedAmenityForBooking.id,
-      amenity: selectedAmenityForBooking.name,
+      amenityId: bookingAmenity.id,
+      amenity: bookingAmenity.name,
       resident: form.resident,
       unit: form.unit,
       date: form.date,
       time: `${form.startTime} – ${form.endTime}`,
       guests: Number(form.guests),
-      cost: selectedAmenityForBooking.rate,
+      cost: bookingAmenity.rate,
+      deposit: bookingAmenity.deposit || 'No aplica',
+      specialRequests: form.specialRequests || undefined,
     })
 
-    const amenityName = selectedAmenityForBooking.name
-    setSelectedAmenityForBooking(null)
-    setSuccessToast(`¡Solicitud de reservación para "${amenityName}" registrada con éxito!`)
-    setTimeout(() => setSuccessToast(null), 4000)
+    const name = bookingAmenity.name
+    setBookingAmenity(null)
+    showToast(`¡Reservación para "${name}" enviada exitosamente! Revisa tu pase en "Mis Reservaciones".`)
     if (onBookingSuccess) onBookingSuccess()
   }
 
-  function handleCreateAmenity(e: React.FormEvent) {
-    e.preventDefault()
-    if (!newForm.name) return
-
-    const rulesList = newForm.rules
-      .split('\n')
-      .map(r => r.trim())
-      .filter(Boolean)
-
-    addAmenity({
-      name: newForm.name,
-      capacity: Number(newForm.capacity),
-      rate: newForm.rate,
-      costAmount: Number(newForm.costAmount) || 0,
-      hours: newForm.hours,
-      deposit: newForm.deposit,
-      maxHoursPerBooking: Number(newForm.maxHoursPerBooking) || 4,
-      available: true,
-      img: newForm.img || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=800&q=80',
-      rules: rulesList.length > 0 ? rulesList : ['Uso responsable de las instalaciones'],
-    })
-
-    setCreateModalOpen(false)
-    setSuccessToast(`¡Amenidad "${newForm.name}" agregada con éxito al catálogo con imagen optimizada!`)
-    setTimeout(() => setSuccessToast(null), 4000)
-    setNewForm({
-      name: '',
-      capacity: 20,
-      rate: 'Sin costo',
-      costAmount: 0,
-      hours: '08:00 – 22:00 hrs',
-      deposit: 'No aplica',
-      maxHoursPerBooking: 4,
-      img: '',
-      rules: 'Uso exclusivo para residentes y sus invitados\nCuidar las instalaciones y recoger basura\nRespetar el aforo y horario establecido',
-    })
+  function handleOpenCreate() {
+    setEditingAmenity(null)
+    setIsFormModalOpen(true)
   }
 
   function handleOpenEdit(a: Amenity) {
-    setEditAmenityData(a)
-    setEditForm({
-      id: a.id,
-      name: a.name,
-      capacity: a.capacity,
-      rate: a.rate,
-      costAmount: a.costAmount || (parseInt(a.rate.replace(/[^0-9]/g, '')) || 0),
-      hours: a.hours,
-      deposit: a.deposit || 'No aplica',
-      maxHoursPerBooking: a.maxHoursPerBooking || 4,
-      available: a.available !== false,
-      img: a.img || '',
-      rules: Array.isArray(a.rules) ? a.rules.join('\n') : (a.rules || ''),
-    })
+    setEditingAmenity(a)
+    setIsFormModalOpen(true)
   }
 
-  function handleSaveEdit(e: React.FormEvent) {
-    e.preventDefault()
-    if (!editForm.name) return
-
-    const rulesList = editForm.rules
-      .split('\n')
-      .map(r => r.trim())
-      .filter(Boolean)
-
-    updateAmenity({
-      id: editForm.id,
-      name: editForm.name,
-      capacity: Number(editForm.capacity),
-      rate: editForm.rate,
-      costAmount: Number(editForm.costAmount) || 0,
-      hours: editForm.hours,
-      deposit: editForm.deposit,
-      maxHoursPerBooking: Number(editForm.maxHoursPerBooking) || 4,
-      available: editForm.available,
-      img: editForm.img || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=800&q=80',
-      rules: rulesList.length > 0 ? rulesList : ['Uso responsable de las instalaciones'],
-    })
-
-    setEditAmenityData(null)
-    setSuccessToast(`¡Amenidad "${editForm.name}" actualizada con éxito!`)
-    setTimeout(() => setSuccessToast(null), 4000)
+  function handleSaveAmenity(data: Omit<Amenity, 'id'> | Amenity) {
+    if ('id' in data) {
+      updateAmenity(data as Amenity)
+      showToast(`¡Amenidad "${data.name}" actualizada con éxito!`)
+    } else {
+      addAmenity(data)
+      showToast(`¡Nueva amenidad "${data.name}" registrada con éxito!`)
+    }
   }
 
-  function handleDeleteAmenity(id: number) {
-    const target = amenities.find(a => a.id === id)
-    deleteAmenity(id)
-    setDeleteAmenityId(null)
-    setSuccessToast(`¡Amenidad "${target?.name || ''}" eliminada del catálogo!`)
-    setTimeout(() => setSuccessToast(null), 4000)
+  function handleDeleteConfirm() {
+    if (!deletingAmenity) return
+    const name = deletingAmenity.name
+    deleteAmenity(deletingAmenity.id)
+    setDeletingAmenity(null)
+    showToast(`Amenidad "${name}" eliminada del catálogo.`)
   }
 
   return (
     <div className="space-y-6">
-      {successToast && (
-        <div className="p-4 rounded-2xl bg-[#e6f2f0] border border-[#7eb0a6] text-[#003333] text-xs sm:text-sm font-bold flex items-center gap-3 animate-fade-in shadow-md">
-          <Ico n="check" c="w-5 h-5 text-[#008080]" />
-          {successToast}
+      {/* Toast Notification */}
+      {toastMessage && (
+        <div className="p-4 rounded-2xl bg-teal-50 border border-teal-200 text-teal-900 text-xs sm:text-sm font-bold flex items-center gap-3 animate-fade-in shadow-xs">
+          <Ico n="check" c="w-5 h-5 text-teal-600 shrink-0" />
+          <span>{toastMessage}</span>
         </div>
       )}
 
-      {/* Top Header & Action */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
-        <div>
-          <h3 className="font-display font-bold text-slate-900 text-base sm:text-lg">
-            Catálogo de Espacios y Áreas Comunes
-          </h3>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Administra las amenidades, sube fotos optimizadas, establece cuotas, aforos y horarios.
-          </p>
+      {/* Admin Action Bar */}
+      {isAdmin && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-2xl bg-white border border-slate-200/80 shadow-xs">
+          <div>
+            <h3 className="font-display font-bold text-slate-900 text-base">
+              Catálogo de Espacios y Áreas Comunes
+            </h3>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Administra las amenidades, cuotas de uso por evento, horarios y disponibilidad.
+            </p>
+          </div>
+          <button
+            onClick={handleOpenCreate}
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#008080] hover:bg-[#006666] text-white font-bold text-xs shadow-xs transition-colors cursor-pointer shrink-0"
+          >
+            <Ico n="plus" c="w-4 h-4" />
+            <span>+ Nueva Amenidad</span>
+          </button>
         </div>
-        <Btn
-          onClick={() => setCreateModalOpen(true)}
-          className="shrink-0 whitespace-nowrap font-bold shadow-xs flex items-center justify-center gap-2"
-        >
-          <Ico n="plus" c="w-4 h-4" />
-          + Nueva Amenidad
-        </Btn>
+      )}
+
+      {/* Header Intro */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+        <div>
+          <h3 className="font-display font-bold text-slate-900 text-base">Espacios Disponibles para Residentes</h3>
+          <p className="text-xs text-slate-500 mt-0.5">Explora amenidades de primera clase, revisa equipamiento, capacidad y reserva al instante.</p>
+        </div>
+        <span className="text-xs font-mono font-bold text-teal-700 bg-teal-50 px-3 py-1 rounded-xl border border-teal-100">
+          {amenities.filter(a => a.available).length} de {amenities.length} Activas
+        </span>
       </div>
 
       {/* Catalog Grid */}
-      {amenities.length === 0 ? (
-        <div className="rounded-2xl p-12 bg-white border border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)] text-center space-y-3 animate-fade-in">
-          <div className="w-14 h-14 mx-auto rounded-2xl bg-teal-50 border border-teal-100 text-teal-700 flex items-center justify-center">
-            <Ico n="tag" c="w-7 h-7" />
-          </div>
-          <h3 className="font-display font-bold text-slate-800 text-lg">Catálogo de amenidades vacío</h3>
-          <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto">
-            Aún no se han registrado áreas comunes. Haz clic en "+ Nueva Amenidad" para registrar una alberca, terraza, asadores, canchas o salón de eventos.
-          </p>
-          <div className="pt-2">
-            <Btn onClick={() => setCreateModalOpen(true)} className="font-bold">
-              + Agregar Primera Amenidad
-            </Btn>
-          </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-          {amenities.map(a => (
-            <div
-              key={a.id}
-              className={`rounded-2xl overflow-hidden transition-all duration-200 bg-white border border-teal-950/[0.08] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.95),0_1px_3px_rgba(0,51,51,0.03),0_6px_20px_rgba(0,51,51,0.04)] hover:shadow-[inset_0_1px_0_0_rgba(255,255,255,1),0_12px_30px_rgba(0,51,51,0.08)] hover:border-teal-500/30 hover:-translate-y-0.5 flex flex-col justify-between group ${
-                !a.available ? 'opacity-75' : ''
-              }`}
-            >
-              {/* Image Box */}
-              <div className="h-48 relative overflow-hidden bg-slate-900">
-                <img
-                  src={a.img || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=800&q=80'}
-                  alt={a.name}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-108"
-                />
-                <div
-                  className="absolute inset-0"
-                  style={{
-                    background:
-                      'linear-gradient(to top, rgba(0, 35, 35, 0.92) 0%, rgba(0, 51, 51, 0.3) 60%, transparent 100%)',
-                  }}
-                />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {amenities.map(a => (
+          <div
+            key={a.id}
+            className={`rounded-2xl overflow-hidden transition-all duration-300 bg-white border border-slate-200/80 shadow-[0_1px_3px_rgba(0,0,0,0.02),0_4px_16px_rgba(0,0,0,0.03)] hover:shadow-[0_12px_32px_rgba(0,128,128,0.1)] hover:border-teal-500/40 hover:-translate-y-1 flex flex-col justify-between group ${
+              !a.available ? 'opacity-80' : ''
+            }`}
+          >
+            {/* Image Box */}
+            <div className="h-52 relative overflow-hidden">
+              <img
+                src={a.img || 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=800&q=80'}
+                alt={a.name}
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+              />
+              <div
+                className="absolute inset-0"
+                style={{
+                  background:
+                    'linear-gradient(to top, rgba(15, 23, 42, 0.92) 0%, rgba(15, 23, 42, 0.3) 55%, transparent 100%)',
+                }}
+              />
 
-                {/* Status Pill & Action Buttons */}
-                <div className="absolute top-3 right-3 flex items-center gap-1.5">
-                  <span
-                    className="text-xs font-bold px-3 py-1 rounded-full text-white backdrop-blur-md border border-white/25 shadow-xs"
-                    style={{
-                      backgroundColor: a.available ? 'rgba(0, 128, 128, 0.9)' : 'rgba(100, 116, 139, 0.9)',
-                    }}
-                  >
-                    {a.available ? '✓ Disponible' : 'Mantenimiento'}
+              {/* Status Pill */}
+              <span
+                className={`absolute top-3.5 right-3.5 text-[11px] font-bold px-3 py-1 rounded-full text-white backdrop-blur-md border shadow-xs ${
+                  a.available
+                    ? 'bg-teal-600/90 border-teal-400/40 text-teal-50'
+                    : 'bg-amber-600/90 border-amber-400/40 text-amber-50'
+                }`}
+              >
+                {a.available ? (
+                  <span className="inline-flex items-center gap-1">
+                    <Ico n="check" c="w-3.5 h-3.5" />
+                    Disponible
                   </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1">
+                    <Ico n="alertTriangle" c="w-3.5 h-3.5" />
+                    En Mantenimiento
+                  </span>
+                )}
+              </span>
 
-                  {/* Edit button */}
-                  <button
-                    type="button"
-                    title="Editar amenidad"
-                    onClick={() => handleOpenEdit(a)}
-                    className="w-8 h-8 rounded-full bg-black/50 hover:bg-black/80 text-white backdrop-blur-md border border-white/20 flex items-center justify-center transition-all cursor-pointer"
-                  >
-                    <Ico n="edit" c="w-3.5 h-3.5" />
-                  </button>
-
-                  {/* Delete button */}
-                  <button
-                    type="button"
-                    title="Eliminar amenidad"
-                    onClick={() => setDeleteAmenityId(a.id)}
-                    className="w-8 h-8 rounded-full bg-red-600/70 hover:bg-red-600 text-white backdrop-blur-md border border-white/20 flex items-center justify-center transition-all cursor-pointer"
-                  >
-                    <Ico n="trash" c="w-3.5 h-3.5" />
-                  </button>
-                </div>
-
-                <div className="absolute bottom-3 left-4 right-4">
-                  <p className="text-[10px] font-mono text-teal-300 uppercase tracking-widest font-bold">
-                    ✦ ÁREA EXCLUSIVA RESIDENCIAL
+              <div className="absolute bottom-3.5 left-4 right-4">
+                <span className="text-[10px] font-mono uppercase tracking-widest font-bold text-teal-300">
+                  ÁREA RESIDENCIAL EXCLUSIVA
+                </span>
+                <h4 className="font-display font-extrabold text-white text-lg leading-tight drop-shadow-sm mt-0.5">
+                  {a.name}
+                </h4>
+                {a.subtitle && (
+                  <p className="text-xs text-white/80 line-clamp-1 mt-0.5 font-normal">
+                    {a.subtitle}
                   </p>
-                  <h4 className="font-display font-black text-white text-lg leading-tight drop-shadow-xs">
-                    {a.name}
-                  </h4>
-                </div>
-              </div>
-
-              {/* Info details */}
-              <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between">
-                <div className="space-y-2 text-xs mb-4">
-                  <div className="flex justify-between items-center py-1.5 border-b border-teal-950/[0.05] gap-2">
-                    <span className="text-slate-500 font-medium whitespace-nowrap">Capacidad máxima</span>
-                    <span className="font-bold text-slate-800 bg-slate-100/80 px-2.5 py-0.5 rounded-lg whitespace-nowrap shrink-0 border border-slate-200/60">
-                      👥 {a.capacity} personas
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center py-1.5 border-b border-teal-950/[0.05] gap-2">
-                    <span className="text-slate-500 font-medium whitespace-nowrap">Horario habilitado</span>
-                    <span className="font-mono font-bold text-slate-700 whitespace-nowrap shrink-0">⏰ {a.hours}</span>
-                  </div>
-                  <div className="flex justify-between items-center py-1.5 gap-2">
-                    <span className="text-slate-500 font-medium whitespace-nowrap">Cuota de reservación</span>
-                    <span className="font-extrabold text-[#008080] text-sm whitespace-nowrap shrink-0 bg-teal-50 px-2.5 py-0.5 rounded-lg border border-teal-200/70 shadow-2xs">
-                      {a.rate}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex items-center gap-2 pt-3 border-t border-teal-950/[0.06]">
-                  <button
-                    type="button"
-                    onClick={() => setSelectedAmenityForRules(a)}
-                    className="px-3.5 py-2 rounded-xl text-xs font-bold border border-slate-200/80 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer whitespace-nowrap shrink-0"
-                  >
-                    Reglamento
-                  </button>
-                  <button
-                    type="button"
-                    disabled={!a.available}
-                    onClick={() => handleOpenBooking(a)}
-                    className="flex-1 py-2 rounded-xl text-xs sm:text-sm font-bold text-white transition-all shadow-[0_4px_14px_rgba(0,128,128,0.22)] hover:brightness-110 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap justify-center text-center"
-                    style={
-                      a.available
-                        ? {
-                            background: `linear-gradient(135deg, ${BRAND_COLORS.primary}, ${BRAND_COLORS.primaryDark})`,
-                          }
-                        : { backgroundColor: '#f1f5f9', color: '#94a3b8' }
-                    }
-                  >
-                    {a.available ? 'Apartar Espacio' : 'No Disponible'}
-                  </button>
-                </div>
+                )}
               </div>
             </div>
-          ))}
-        </div>
+
+            {/* Info details */}
+            <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between space-y-4">
+              {/* Features Chips */}
+              {a.features && a.features.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 pt-1">
+                  {a.features.slice(0, 3).map((f, i) => (
+                    <span
+                      key={i}
+                      className="text-[11px] font-medium text-slate-600 bg-slate-100/90 px-2.5 py-0.5 rounded-lg border border-slate-200/50"
+                    >
+                      {f}
+                    </span>
+                  ))}
+                  {a.features.length > 3 && (
+                    <span className="text-[11px] font-bold text-teal-700 bg-teal-50 px-2 py-0.5 rounded-lg">
+                      +{a.features.length - 3} más
+                    </span>
+                  )}
+                </div>
+              )}
+
+              {/* Key Specs */}
+              <div className="space-y-2 text-xs bg-slate-50/70 p-3 rounded-xl border border-slate-100">
+                <div className="flex justify-between items-center py-0.5">
+                  <span className="text-slate-500 font-medium">Capacidad máxima:</span>
+                  <span className="font-bold text-slate-800 bg-white px-2.5 py-0.5 rounded-md border border-slate-200/60 shadow-2xs inline-flex items-center gap-1.5">
+                    <Ico n="users" c="w-3.5 h-3.5 text-slate-400" />
+                    Hasta {a.capacity} pers.
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-0.5">
+                  <span className="text-slate-500 font-medium">Horario de servicio:</span>
+                  <span className="font-mono font-semibold text-slate-700 inline-flex items-center gap-1.5">
+                    <Ico n="clock" c="w-3.5 h-3.5 text-slate-400" />
+                    {a.hours}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center py-0.5 pt-1 border-t border-slate-200/60">
+                  <span className="text-slate-500 font-medium">Cuota de reservación:</span>
+                  <span className="font-bold text-teal-800 text-xs sm:text-sm bg-teal-50 px-2 py-0.5 rounded-md border border-teal-100">
+                    {a.rate}
+                  </span>
+                </div>
+                {a.deposit && a.deposit !== 'No aplica' && (
+                  <div className="flex justify-between items-center py-0.5 text-[11px] text-slate-400">
+                    <span>Depósito en garantía:</span>
+                    <span className="font-medium text-slate-600">{a.deposit}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Maintenance note if any */}
+              {!a.available && a.maintenanceNote && (
+                <div className="p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800 font-medium flex items-center gap-2">
+                  <Ico n="info" c="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>{a.maintenanceNote}</span>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="pt-3 border-t border-slate-100 space-y-2">
+                {isAdmin ? (
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenEdit(a)}
+                      className="flex-1 py-1.5 px-2 rounded-xl text-xs font-bold border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 transition-colors cursor-pointer text-center"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleAmenityAvailability(a.id)}
+                      className={`py-1.5 px-2.5 rounded-xl text-xs font-bold transition-colors cursor-pointer whitespace-nowrap ${
+                        a.available
+                          ? 'bg-amber-50 text-amber-800 border border-amber-200 hover:bg-amber-100'
+                          : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
+                      }`}
+                    >
+                      {a.available ? 'Pausar' : 'Activar'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setDeletingAmenity(a)}
+                      className="py-1.5 px-2 rounded-xl text-xs font-bold text-red-600 hover:bg-red-50 border border-red-200 transition-colors cursor-pointer"
+                      title="Eliminar amenidad"
+                    >
+                      <Ico n="x" c="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedAmenityForRules(a)}
+                      className="px-3.5 py-2 rounded-xl text-xs font-bold border border-slate-200 text-slate-700 hover:bg-slate-50 transition-colors cursor-pointer whitespace-nowrap shrink-0"
+                    >
+                      Reglamento
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!a.available}
+                      onClick={() => handleOpenBooking(a)}
+                      className="flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white transition-all shadow-[0_4px_14px_rgba(0,128,128,0.22)] hover:brightness-110 disabled:cursor-not-allowed cursor-pointer whitespace-nowrap justify-center flex items-center gap-1.5"
+                      style={
+                        a.available
+                          ? {
+                              background: `linear-gradient(135deg, ${BRAND_COLORS.primary}, ${BRAND_COLORS.primaryDark})`,
+                            }
+                          : { backgroundColor: '#f1f5f9', color: '#94a3b8' }
+                      }
+                    >
+                      <Ico n="calendar" c="w-4 h-4" />
+                      <span>{a.available ? 'Apartar Espacio' : 'Fuera de Servicio'}</span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Amenity Create / Edit Modal (Admin) */}
+      <AmenityFormModal
+        isOpen={isFormModalOpen}
+        onClose={() => setIsFormModalOpen(false)}
+        onSave={handleSaveAmenity}
+        editingAmenity={editingAmenity}
+      />
+
+      {/* Delete Confirmation Modal (Admin) */}
+      {deletingAmenity && (
+        <Modal
+          isOpen={true}
+          onClose={() => setDeletingAmenity(null)}
+          title="Eliminar Amenidad"
+          subtitle={`¿Estás seguro de que deseas eliminar "${deletingAmenity.name}" del catálogo?`}
+        >
+          <div className="space-y-4">
+            <p className="text-xs text-slate-600">
+              Esta acción eliminará el espacio del catálogo y no estará disponible para nuevas reservaciones.
+            </p>
+            <div className="flex gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={handleDeleteConfirm}
+                className="flex-1 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-colors cursor-pointer"
+              >
+                Sí, Eliminar Amenidad
+              </button>
+              <button
+                type="button"
+                onClick={() => setDeletingAmenity(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 transition-colors cursor-pointer"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </Modal>
       )}
 
       {/* Rules Modal */}
@@ -352,402 +389,290 @@ export function AmenityCatalog({
         onClose={() => setSelectedAmenityForRules(null)}
       />
 
-      {/* Booking Form Modal */}
+      {/* Multi-Step Booking Wizard Modal */}
       <Modal
-        isOpen={!!selectedAmenityForBooking}
-        onClose={() => setSelectedAmenityForBooking(null)}
-        title={selectedAmenityForBooking ? `Reservar ${selectedAmenityForBooking.name}` : 'Reservar'}
-        subtitle="Ingresa la fecha, rango de horas y número de invitados estimados."
+        isOpen={!!bookingAmenity}
+        onClose={() => setBookingAmenity(null)}
+        title={bookingAmenity ? `Reservación: ${bookingAmenity.name}` : 'Reservar Espacio'}
+        subtitle={`Paso ${step} de 3 — ${step === 1 ? 'Fecha y Horario' : step === 2 ? 'Detalles e Invitados' : 'Confirmación de Apartado'}`}
       >
-        {selectedAmenityForBooking && (
+        {bookingAmenity && (
           <form onSubmit={handleConfirmBooking} className="space-y-4">
-            <div className="p-4 rounded-2xl bg-[#e6f2f0] border border-[#7eb0a6]/40 flex items-center justify-between text-xs">
-              <div>
-                <p className="text-slate-400 font-mono uppercase font-bold text-[10px]">Cuota requerida:</p>
-                <p className="font-extrabold text-[#003333] text-base mt-0.5">{selectedAmenityForBooking.rate}</p>
-              </div>
-              <div className="text-right">
-                <p className="text-slate-400 font-mono uppercase font-bold text-[10px]">Capacidad:</p>
-                <p className="font-bold text-slate-800 text-sm mt-0.5">Hasta {selectedAmenityForBooking.capacity} personas</p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-mono uppercase tracking-wider mb-1 text-[#004c4c] font-bold">
-                  Unidad
-                </label>
-                <select
-                  value={form.unit}
-                  onChange={e => {
-                    const u = e.target.value
-                    const res = residents.find(r => r.unit === u)
-                    setForm(f => ({ ...f, unit: u, resident: res ? res.name : f.resident }))
+            {/* Step Progress Indicators */}
+            <div className="grid grid-cols-3 gap-2 pb-1">
+              {[
+                { s: 1, label: '1. Fecha y Hora', desc: 'Horario' },
+                { s: 2, label: '2. Invitados', desc: 'Aforo' },
+                { s: 3, label: '3. Resumen', desc: 'Pase QR' },
+              ].map(st => (
+                <button
+                  type="button"
+                  key={st.s}
+                  onClick={() => {
+                    if (st.s < step) setStep(st.s as 1 | 2 | 3)
                   }}
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-white border border-[#7eb0a6]/50 font-medium"
+                  disabled={st.s > step}
+                  className={`text-center py-2 px-1 rounded-xl text-xs font-semibold transition-all duration-200 ${
+                    step === st.s
+                      ? 'bg-teal-700 text-white shadow-xs'
+                      : step > st.s
+                      ? 'bg-teal-50 text-teal-800 border border-teal-200/80 cursor-pointer hover:bg-teal-100/70'
+                      : 'text-slate-400 bg-slate-50/80 border border-slate-100 cursor-not-allowed'
+                  }`}
                 >
-                  {residents.map(r => (
-                    <option key={r.id} value={r.unit}>
-                      {r.unit} — {r.name.split(' ')[0]}
-                    </option>
-                  ))}
-                </select>
+                  <span className="block truncate">{st.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* STEP 1: Date & Time */}
+            {step === 1 && (
+              <div className="space-y-3.5 animate-fade-in">
+                <div className="p-3.5 rounded-2xl bg-gradient-to-r from-teal-50/80 via-slate-50 to-teal-50/80 border border-teal-100 flex items-center justify-between text-xs">
+                  <div>
+                    <span className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Cuota requerida:</span>
+                    <p className="font-bold text-teal-800 text-sm mt-0.5">{bookingAmenity.rate}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">Horario permitido:</span>
+                    <p className="font-semibold text-slate-700 text-xs mt-0.5 font-mono">{bookingAmenity.hours}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-700">
+                    Fecha de la Reservación
+                  </label>
+                  <div className="relative">
+                    <input
+                      required
+                      type="date"
+                      value={form.date}
+                      onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/70 border border-slate-200 focus:bg-white focus:border-teal-600 focus:ring-2 focus:ring-teal-500/20 focus:outline-none transition-all font-mono font-semibold text-slate-800"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-700">
+                      Hora de Inicio
+                    </label>
+                    <input
+                      required
+                      type="time"
+                      value={form.startTime}
+                      onChange={e => setForm(f => ({ ...f, startTime: e.target.value }))}
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/70 border border-slate-200 focus:bg-white focus:border-teal-600 focus:ring-2 focus:ring-teal-500/20 focus:outline-none transition-all font-mono font-semibold text-slate-800"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-700">
+                      Hora de Término
+                    </label>
+                    <input
+                      required
+                      type="time"
+                      value={form.endTime}
+                      onChange={e => setForm(f => ({ ...f, endTime: e.target.value }))}
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/70 border border-slate-200 focus:bg-white focus:border-teal-600 focus:ring-2 focus:ring-teal-500/20 focus:outline-none transition-all font-mono font-semibold text-slate-800"
+                    />
+                  </div>
+                </div>
+
+                <div className="pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep(2)}
+                    className="w-full py-2.5 rounded-xl font-bold text-sm bg-teal-700 hover:bg-teal-800 active:scale-[0.99] text-white transition-all duration-150 shadow-md cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <span>Continuar al Paso 2</span>
+                    <Ico n="chevron" c="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-mono uppercase tracking-wider mb-1 text-[#004c4c] font-bold">
-                  Solicitante
+            )}
+
+            {/* STEP 2: Guests & Requests */}
+            {step === 2 && (
+              <div className="space-y-3.5 animate-fade-in">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-700">
+                      Unidad / Depto
+                    </label>
+                    <select
+                      value={form.unit}
+                      onChange={e => {
+                        const u = e.target.value
+                        const res = residents.find(r => r.unit === u)
+                        setForm(f => ({ ...f, unit: u, resident: res ? res.name : f.resident }))
+                      }}
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/70 border border-slate-200 font-semibold text-slate-800 focus:bg-white focus:border-teal-600 focus:ring-2 focus:ring-teal-500/20 focus:outline-none cursor-pointer"
+                    >
+                      {residents.map(r => (
+                        <option key={r.id} value={r.unit}>
+                          {r.unit} — {r.name.split(' ')[0]}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-700">
+                      Nombre del Titular
+                    </label>
+                    <input
+                      required
+                      value={form.resident}
+                      onChange={e => setForm(f => ({ ...f, resident: e.target.value }))}
+                      className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/70 border border-slate-200 font-semibold text-slate-800 focus:bg-white focus:border-teal-600 focus:ring-2 focus:ring-teal-500/20 focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="text-xs font-semibold uppercase tracking-wider text-slate-700">
+                      Número Estimado de Invitados
+                    </label>
+                    <span className="text-xs font-bold text-teal-800 bg-teal-50 px-2 py-0.5 rounded-md border border-teal-100">
+                      Aforo máx. {bookingAmenity.capacity} pers.
+                    </span>
+                  </div>
+                  <input
+                    type="number"
+                    min={1}
+                    max={bookingAmenity.capacity}
+                    value={form.guests}
+                    onChange={e => setForm(f => ({ ...f, guests: Number(e.target.value) }))}
+                    className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/70 border border-slate-200 font-mono font-bold text-slate-800 focus:bg-white focus:border-teal-600 focus:ring-2 focus:ring-teal-500/20 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-700">
+                    Peticiones Especiales / Notas para Caseta (Opcional)
+                  </label>
+                  <input
+                    value={form.specialRequests}
+                    onChange={e => setForm(f => ({ ...f, specialRequests: e.target.value }))}
+                    placeholder="Ej. Ingresará personal de catering o animadores..."
+                    className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/70 border border-slate-200 text-slate-800 focus:bg-white focus:border-teal-600 focus:ring-2 focus:ring-teal-500/20 focus:outline-none"
+                  />
+                </div>
+
+                <label className="flex items-start gap-2.5 p-3 rounded-2xl bg-teal-50/70 border border-teal-200/80 text-xs font-medium text-teal-950 cursor-pointer hover:bg-teal-50 transition-colors">
+                  <input
+                    type="checkbox"
+                    required
+                    checked={form.acceptedRules}
+                    onChange={e => setForm(f => ({ ...f, acceptedRules: e.target.checked }))}
+                    className="rounded text-teal-700 focus:ring-teal-600 w-4 h-4 mt-0.5 cursor-pointer"
+                  />
+                  <span>
+                    He leído y me comprometo a cumplir el <strong>Reglamento de Uso y Convivencia</strong> del espacio.
+                  </span>
                 </label>
-                <input
-                  required
-                  value={form.resident}
-                  onChange={e => setForm(f => ({ ...f, resident: e.target.value }))}
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl"
-                  style={GLASS_STYLES.input}
-                />
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep(1)}
+                    className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                  >
+                    ← Volver
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStep(3)}
+                    className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-teal-700 hover:bg-teal-800 active:scale-[0.99] text-white transition-all duration-150 shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <span>Revisar Resumen</span>
+                    <Ico n="chevron" c="w-4 h-4" />
+                  </button>
+                </div>
               </div>
-            </div>
+            )}
 
-            <div>
-              <label className="block text-xs font-mono uppercase tracking-wider mb-1 text-[#004c4c] font-bold">
-                Fecha del Apartado
-              </label>
-              <input
-                required
-                type="date"
-                value={form.date}
-                onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl font-mono"
-                style={GLASS_STYLES.input}
-              />
-            </div>
+            {/* STEP 3: Summary & Submit */}
+            {step === 3 && (
+              <div className="space-y-3.5 animate-fade-in">
+                <div className="p-4.5 rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-teal-950 text-white shadow-xl space-y-3.5 border border-slate-700/50">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="text-[10px] font-mono text-teal-300 uppercase tracking-widest font-bold">
+                        RESUMEN DE RESERVACIÓN
+                      </span>
+                      <h4 className="font-display font-bold text-lg leading-tight mt-0.5">{bookingAmenity.name}</h4>
+                    </div>
+                    <span className="px-2.5 py-1 rounded-full text-xs font-bold bg-teal-500/20 text-teal-200 border border-teal-400/30">
+                      {bookingAmenity.rate}
+                    </span>
+                  </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div>
-                <label className="block text-xs font-mono uppercase tracking-wider mb-1 text-[#004c4c] font-bold">
-                  Hora de Inicio
-                </label>
-                <input
-                  required
-                  type="time"
-                  value={form.startTime}
-                  onChange={e => setForm(f => ({ ...f, startTime: e.target.value }))}
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl font-mono"
-                  style={GLASS_STYLES.input}
-                />
+                  <div className="grid grid-cols-2 gap-3 text-xs pt-3 border-t border-white/10">
+                    <div>
+                      <span className="text-white/60 text-[10px] uppercase font-bold">Fecha Apartada:</span>
+                      <p className="font-semibold text-white mt-0.5 font-mono inline-flex items-center gap-1.5">
+                        <Ico n="calendar" c="w-3.5 h-3.5 text-teal-300" />
+                        {form.date}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-white/60 text-[10px] uppercase font-bold">Horario:</span>
+                      <p className="font-semibold text-white mt-0.5 font-mono inline-flex items-center gap-1.5">
+                        <Ico n="clock" c="w-3.5 h-3.5 text-teal-300" />
+                        {form.startTime} – {form.endTime}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-white/60 text-[10px] uppercase font-bold">Titular / Unidad:</span>
+                      <p className="font-semibold text-white mt-0.5 inline-flex items-center gap-1.5">
+                        <Ico n="user" c="w-3.5 h-3.5 text-teal-300" />
+                        {form.resident} ({form.unit})
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-white/60 text-[10px] uppercase font-bold">Aforo Invitados:</span>
+                      <p className="font-semibold text-white mt-0.5 inline-flex items-center gap-1.5">
+                        <Ico n="users" c="w-3.5 h-3.5 text-teal-300" />
+                        {form.guests} personas
+                      </p>
+                    </div>
+                  </div>
+
+                  {bookingAmenity.deposit && bookingAmenity.deposit !== 'No aplica' && (
+                    <p className="text-[11px] text-amber-200 bg-amber-500/10 p-2.5 rounded-xl border border-amber-400/20 leading-relaxed inline-flex items-center gap-1.5 w-full">
+                      <Ico n="shield" c="w-3.5 h-3.5 text-amber-300 shrink-0" />
+                      <span>Depósito en garantía: <strong>{bookingAmenity.deposit}</strong> (Reembolsable tras el evento)</span>
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setStep(2)}
+                    className="px-4 py-2.5 rounded-xl text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors cursor-pointer"
+                  >
+                    ← Modificar
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-2.5 rounded-xl text-xs font-bold bg-teal-700 hover:bg-teal-800 active:scale-[0.99] text-white transition-all duration-150 shadow-md cursor-pointer flex items-center justify-center gap-1.5"
+                  >
+                    <Ico n="check" c="w-4 h-4" />
+                    <span>Confirmar y Solicitar Apartado</span>
+                  </button>
+                </div>
               </div>
-              <div>
-                <label className="block text-xs font-mono uppercase tracking-wider mb-1 text-[#004c4c] font-bold">
-                  Hora de Término
-                </label>
-                <input
-                  required
-                  type="time"
-                  value={form.endTime}
-                  onChange={e => setForm(f => ({ ...f, endTime: e.target.value }))}
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl font-mono"
-                  style={GLASS_STYLES.input}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-xs font-mono uppercase tracking-wider mb-1 text-[#004c4c] font-bold">
-                Número de Invitados (Máx. {selectedAmenityForBooking.capacity})
-              </label>
-              <input
-                type="number"
-                min={1}
-                max={selectedAmenityForBooking.capacity}
-                value={form.guests}
-                onChange={e => setForm(f => ({ ...f, guests: Number(e.target.value) }))}
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl font-mono"
-                style={GLASS_STYLES.input}
-              />
-            </div>
-
-            <div className="flex gap-3 pt-3">
-              <Btn type="submit" className="flex-1 font-bold">
-                Confirmar y Agendar
-              </Btn>
-              <Btn variant="ghost" onClick={() => setSelectedAmenityForBooking(null)}>
-                Cancelar
-              </Btn>
-            </div>
+            )}
           </form>
         )}
-      </Modal>
-
-      {/* Create New Amenity Modal */}
-      <Modal
-        isOpen={createModalOpen}
-        onClose={() => setCreateModalOpen(false)}
-        title="Crear Nueva Amenidad"
-        subtitle="Registra un nuevo espacio común, sube su fotografía optimizada, capacidad, horarios y cuotas."
-      >
-        <form onSubmit={handleCreateAmenity} className="space-y-4 max-h-[80vh] overflow-y-auto pr-1">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-600">
-                Nombre de la Amenidad *
-              </label>
-              <input
-                required
-                value={newForm.name}
-                onChange={e => setNewForm(f => ({ ...f, name: e.target.value }))}
-                placeholder="Ej. Alberca Principal, Salón de Eventos..."
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/80 border border-slate-200/80 focus:bg-white focus:border-teal-500 focus:outline-none transition-all"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-600">
-                Aforo Máximo (Personas) *
-              </label>
-              <input
-                required
-                type="number"
-                min={1}
-                max={500}
-                value={newForm.capacity}
-                onChange={e => setNewForm(f => ({ ...f, capacity: Number(e.target.value) }))}
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/80 border border-slate-200/80 focus:bg-white focus:border-teal-500 focus:outline-none transition-all font-mono"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-600">
-                Texto de Cuota
-              </label>
-              <input
-                value={newForm.rate}
-                onChange={e => setNewForm(f => ({ ...f, rate: e.target.value }))}
-                placeholder="Ej. $300 MXN / sesión o Sin costo"
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/80 border border-slate-200/80 focus:bg-white focus:border-teal-500 focus:outline-none transition-all"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-600">
-                Monto Numérico ($ MXN)
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={newForm.costAmount}
-                onChange={e => setNewForm(f => ({ ...f, costAmount: Number(e.target.value) }))}
-                placeholder="0"
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/80 border border-slate-200/80 focus:bg-white focus:border-teal-500 focus:outline-none transition-all font-mono"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-600">
-                Horario de Operación
-              </label>
-              <input
-                value={newForm.hours}
-                onChange={e => setNewForm(f => ({ ...f, hours: e.target.value }))}
-                placeholder="08:00 – 22:00 hrs"
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/80 border border-slate-200/80 focus:bg-white focus:border-teal-500 focus:outline-none transition-all font-mono"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-600">
-                Depósito en Garantía
-              </label>
-              <input
-                value={newForm.deposit}
-                onChange={e => setNewForm(f => ({ ...f, deposit: e.target.value }))}
-                placeholder="Ej. $1,000 MXN en garantía o No aplica"
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/80 border border-slate-200/80 focus:bg-white focus:border-teal-500 focus:outline-none transition-all"
-              />
-            </div>
-          </div>
-
-          {/* Optimized Image Uploader */}
-          <ImageUploader
-            label="Fotografía Ilustrativa (Base64 Optimizada)"
-            helperText="Sube una fotografía desde tu computadora o celular. Se optimizará y comprimirá automáticamente a Base64 ligero."
-            value={newForm.img}
-            onChange={val => setNewForm(f => ({ ...f, img: val }))}
-            maxWidth={1200}
-            maxHeight={800}
-            quality={0.82}
-          />
-
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-600">
-              Reglas de Uso (Una por renglón)
-            </label>
-            <textarea
-              rows={3}
-              value={newForm.rules}
-              onChange={e => setNewForm(f => ({ ...f, rules: e.target.value }))}
-              placeholder="Escribe cada regla en un renglón..."
-              className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/80 border border-slate-200/80 focus:bg-white focus:border-teal-500 focus:outline-none transition-all"
-            />
-          </div>
-
-          <div className="flex gap-3 pt-3">
-            <Btn type="submit" className="flex-1 font-bold">
-              Guardar Amenidad
-            </Btn>
-            <Btn variant="ghost" onClick={() => setCreateModalOpen(false)}>
-              Cancelar
-            </Btn>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Edit Amenity Modal */}
-      <Modal
-        isOpen={!!editAmenityData}
-        onClose={() => setEditAmenityData(null)}
-        title={editAmenityData ? `Editar Amenidad: ${editAmenityData.name}` : 'Editar Amenidad'}
-        subtitle="Modifica la información del espacio, actualiza su fotografía o cambia el aforo y reglas."
-      >
-        <form onSubmit={handleSaveEdit} className="space-y-4 max-h-[80vh] overflow-y-auto pr-1">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-600">
-                Nombre de la Amenidad *
-              </label>
-              <input
-                required
-                value={editForm.name}
-                onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/80 border border-slate-200/80 focus:bg-white focus:border-teal-500 focus:outline-none transition-all"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-600">
-                Aforo Máximo (Personas) *
-              </label>
-              <input
-                required
-                type="number"
-                min={1}
-                max={500}
-                value={editForm.capacity}
-                onChange={e => setEditForm(f => ({ ...f, capacity: Number(e.target.value) }))}
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/80 border border-slate-200/80 focus:bg-white focus:border-teal-500 focus:outline-none transition-all font-mono"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-600">
-                Texto de Cuota
-              </label>
-              <input
-                value={editForm.rate}
-                onChange={e => setEditForm(f => ({ ...f, rate: e.target.value }))}
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/80 border border-slate-200/80 focus:bg-white focus:border-teal-500 focus:outline-none transition-all"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-600">
-                Monto Numérico ($ MXN)
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={editForm.costAmount}
-                onChange={e => setEditForm(f => ({ ...f, costAmount: Number(e.target.value) }))}
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/80 border border-slate-200/80 focus:bg-white focus:border-teal-500 focus:outline-none transition-all font-mono"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-600">
-                Horario de Operación
-              </label>
-              <input
-                value={editForm.hours}
-                onChange={e => setEditForm(f => ({ ...f, hours: e.target.value }))}
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/80 border border-slate-200/80 focus:bg-white focus:border-teal-500 focus:outline-none transition-all font-mono"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-600">
-                Estado Operativo
-              </label>
-              <select
-                value={editForm.available ? 'true' : 'false'}
-                onChange={e => setEditForm(f => ({ ...f, available: e.target.value === 'true' }))}
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/80 border border-slate-200/80 focus:bg-white focus:border-teal-500 focus:outline-none transition-all"
-              >
-                <option value="true">✓ Disponible para reservas</option>
-                <option value="false">⚙ En Mantenimiento / Deshabilitado</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Optimized Image Uploader for Edit */}
-          <ImageUploader
-            label="Fotografía Ilustrativa (Base64 Optimizada)"
-            helperText="Puedes subir una nueva foto para reemplazar la actual. Se optimizará automáticamente."
-            value={editForm.img}
-            onChange={val => setEditForm(f => ({ ...f, img: val }))}
-            maxWidth={1200}
-            maxHeight={800}
-            quality={0.82}
-          />
-
-          <div>
-            <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-600">
-              Reglas de Uso (Una por renglón)
-            </label>
-            <textarea
-              rows={3}
-              value={editForm.rules}
-              onChange={e => setEditForm(f => ({ ...f, rules: e.target.value }))}
-              className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/80 border border-slate-200/80 focus:bg-white focus:border-teal-500 focus:outline-none transition-all"
-            />
-          </div>
-
-          <div className="flex gap-3 pt-3">
-            <Btn type="submit" className="flex-1 font-bold">
-              Guardar Cambios
-            </Btn>
-            <Btn variant="ghost" onClick={() => setEditAmenityData(null)}>
-              Cancelar
-            </Btn>
-          </div>
-        </form>
-      </Modal>
-
-      {/* Delete Confirmation Modal */}
-      <Modal
-        isOpen={deleteAmenityId !== null}
-        onClose={() => setDeleteAmenityId(null)}
-        title="¿Eliminar Amenidad?"
-        subtitle="Esta acción eliminará el espacio del catálogo y su disponibilidad en el sistema."
-      >
-        <div className="space-y-4">
-          <p className="text-sm text-slate-600">
-            ¿Estás seguro de que deseas eliminar permanentemente esta amenidad? Esta acción no se puede deshacer.
-          </p>
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => deleteAmenityId && handleDeleteAmenity(deleteAmenityId)}
-              className="flex-1 py-2.5 rounded-xl text-xs sm:text-sm font-bold bg-red-600 text-white hover:bg-red-700 transition-colors cursor-pointer shadow-xs"
-            >
-              Sí, Eliminar
-            </button>
-            <Btn variant="ghost" onClick={() => setDeleteAmenityId(null)} className="flex-1">
-              Cancelar
-            </Btn>
-          </div>
-        </div>
       </Modal>
     </div>
   )
 }
+
 export default AmenityCatalog

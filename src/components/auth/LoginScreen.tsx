@@ -101,7 +101,7 @@ export function LoginScreen({ onLogin }: { onLogin: (u: AuthUser) => void }) {
                 Las Palomas
               </p>
               <p className="text-[11px] font-mono font-bold text-teal-200/90 uppercase tracking-widest mt-1">
-                ✦ Portal Residencial HOA
+                Portal Residencial HOA
               </p>
             </div>
           </div>

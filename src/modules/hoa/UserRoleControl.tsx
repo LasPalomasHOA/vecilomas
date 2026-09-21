@@ -117,7 +117,7 @@ export function UserRoleControl() {
               </p>
               {r.features.map((f, i) => (
                 <div key={i} className="flex items-start gap-2 text-xs text-slate-600">
-                  <span className="text-teal-600 font-bold shrink-0">✓</span>
+                  <Ico n="check" c="w-3.5 h-3.5 text-teal-600 shrink-0 mt-0.5" />
                   <span className="leading-snug">{f}</span>
                 </div>
               ))}

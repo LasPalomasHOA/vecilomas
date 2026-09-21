@@ -40,8 +40,8 @@ export function ResidentQRView({ user }: { user: AuthUser }) {
       setTimeout(() => setToastMessage(null), 4500)
     } catch (err) {
       console.error('Error al compartir pase:', err)
-      setToastMessage('Error al generar o compartir la imagen.')
-      setTimeout(() => setToastMessage(null), 3500)
+      const text = `¡Hola ${pass.visitor}! Te comparto tu Pase de Acceso Digital para Las Palomas Residencial:\n\n• Código: ${pass.code}\n• Unidad: ${pass.unit} (${pass.host})\n• Vigencia: ${pass.validDate} a las ${pass.validTime} hrs\n\nPor favor muéstralo en la caseta de entrada.`
+      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank')
     } finally {
       setSharingPassId(null)
     }
@@ -109,8 +109,12 @@ export function ResidentQRView({ user }: { user: AuthUser }) {
                         {p.visitor}
                       </h4>
                       <p className="text-xs text-teal-700 font-mono font-bold mt-1 whitespace-nowrap">{p.code}</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5 whitespace-nowrap truncate">
-                        📅 {p.validDate} · ⏰ {p.validTime} hrs
+                      <p className="text-[11px] text-slate-400 mt-0.5 whitespace-nowrap truncate inline-flex items-center gap-1">
+                        <Ico n="calendar" c="w-3 h-3 text-slate-400" />
+                        <span>{p.validDate}</span>
+                        <span>·</span>
+                        <Ico n="clock" c="w-3 h-3 text-slate-400" />
+                        <span>{p.validTime} hrs</span>
                       </p>
                     </div>
                   </div>

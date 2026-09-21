@@ -41,7 +41,7 @@ export function GCard({
   children,
   className = '',
   style,
-  p = 'p-5 sm:p-6',
+  p = 'p-4 sm:p-6',
   onClick,
   hoverable = false,
 }: {

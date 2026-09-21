@@ -108,7 +108,7 @@ function MainApp() {
     // ── Resident Views ─────────────────────────────────────────────────────
     if (auth.role === 'resident') {
       if (active === 'res-home') return <ResidentDashboard user={auth} onNav={setActive} />
-      if (active === 'notices') return <ResidentNoticesView />
+      if (active === 'notices') return <ResidentNoticesView unit={auth.unit || 'A-101'} name={auth.name} />
       if (active === 'res-amenities') {
         return <ResidentAmenitiesView unit={auth.unit || 'A-101'} name={auth.name} />
       }

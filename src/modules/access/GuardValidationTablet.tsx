@@ -459,8 +459,8 @@ export function GuardValidationTablet() {
               {validationResult.valid && validationResult.pass ? (
                 <div className="space-y-3.5">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-teal-700 text-white flex items-center justify-center font-bold text-lg shrink-0 shadow-xs">
-                      ✓
+                    <div className="w-10 h-10 rounded-xl bg-teal-700 text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <Ico n="check" c="w-6 h-6 text-white" />
                     </div>
                     <div>
                       <h4 className="font-display font-extrabold text-teal-950 text-lg leading-tight">
@@ -513,8 +513,8 @@ export function GuardValidationTablet() {
               ) : (
                 <div className="space-y-2">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center font-bold text-lg shrink-0 shadow-xs">
-                      ✗
+                    <div className="w-10 h-10 rounded-xl bg-red-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                      <Ico n="x" c="w-6 h-6 text-white" />
                     </div>
                     <div>
                       <h4 className="font-display font-extrabold text-red-950 text-lg leading-tight whitespace-nowrap">

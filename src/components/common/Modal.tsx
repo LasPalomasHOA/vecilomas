@@ -1,4 +1,5 @@
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import Ico from '@/components/common/Icons'
 
 interface ModalProps {
@@ -16,50 +17,83 @@ export function Modal({
   title,
   subtitle,
   children,
-  maxWidth = 'max-w-lg',
+  maxWidth = 'max-w-xl',
 }: ModalProps) {
+  const [mounted, setMounted] = useState(false)
+
   useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isOpen) return
+
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape' && isOpen) onClose()
+      if (e.key === 'Escape') onClose()
     }
+
+    const originalOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
     window.addEventListener('keydown', handleKeyDown)
-    return () => window.removeEventListener('keydown', handleKeyDown)
+
+    return () => {
+      document.body.style.overflow = originalOverflow || 'unset'
+      window.removeEventListener('keydown', handleKeyDown)
+    }
   }, [isOpen, onClose])
 
-  if (!isOpen) return null
+  if (!isOpen || !mounted || typeof document === 'undefined') return null
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-      {/* Backdrop */}
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center p-3 sm:p-6 overflow-y-auto"
+      role="dialog"
+      aria-modal="true"
+    >
+      {/* Immersive Edge-to-Edge Backdrop */}
       <div
-        className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm transition-opacity animate-fade-in"
+        className="fixed inset-0 bg-slate-950/70 backdrop-blur-md transition-opacity duration-300 animate-backdrop-in"
         onClick={onClose}
+        aria-hidden="true"
       />
 
-      {/* Dialog container */}
+      {/* Luxury Dialog Container */}
       <div
-        className={`relative w-full ${maxWidth} max-h-[90vh] flex flex-col rounded-3xl bg-white border border-slate-100 shadow-[0_20px_50px_rgba(0,0,0,0.15)] p-5 sm:p-7 z-10 animate-fade-in my-auto overflow-hidden`}
+        className={`relative w-full ${maxWidth} my-auto flex flex-col rounded-[26px] sm:rounded-3xl bg-white border border-slate-200/80 shadow-[0_25px_70px_-15px_rgba(0,0,0,0.35),0_0_0_1px_rgba(0,0,0,0.06)] p-5 sm:p-7 z-10 animate-modal-pop overflow-hidden`}
+        onClick={e => e.stopPropagation()}
       >
+        {/* Top subtle luxury brand glow line */}
+        <div className="absolute top-0 inset-x-0 h-1 bg-gradient-to-r from-teal-500/20 via-teal-600 to-teal-500/20 pointer-events-none" />
+
         {/* Header */}
-        <div className="flex items-start justify-between gap-3 mb-5 pb-4 border-b border-slate-100 shrink-0">
-          <div className="min-w-0 flex-1">
-            <h3 className="font-display font-semibold text-lg sm:text-xl text-slate-900 tracking-tight leading-snug truncate">{title}</h3>
-            {subtitle && <p className="text-xs sm:text-sm text-slate-500 mt-1 leading-relaxed">{subtitle}</p>}
+        <div className="flex items-start justify-between gap-3 pb-4 border-b border-slate-100 shrink-0">
+          <div className="min-w-0 flex-1 pr-2">
+            <h3 className="font-display font-bold text-lg sm:text-xl text-slate-900 tracking-tight leading-snug">
+              {title}
+            </h3>
+            {subtitle && (
+              <p className="text-xs sm:text-sm text-slate-500 mt-1 leading-relaxed">
+                {subtitle}
+              </p>
+            )}
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors shrink-0 cursor-pointer"
-            aria-label="Cerrar"
+            className="w-8 h-8 rounded-full flex items-center justify-center text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-all duration-150 shrink-0 cursor-pointer active:scale-95"
+            aria-label="Cerrar ventana emergente"
           >
-            <Ico n="x" c="w-5 h-5" />
+            <Ico n="x" c="w-4 h-4" />
           </button>
         </div>
 
-        {/* Body */}
-        <div className="overflow-y-auto pr-1 flex-1">{children}</div>
+        {/* Scrollable Body */}
+        <div className="overflow-y-auto max-h-[calc(85vh-100px)] pt-4 pr-1 focus:outline-none">
+          {children}
+        </div>
       </div>
-    </div>
+    </div>,
+    document.body
   )
 }
-export default Modal
 
+export default Modal

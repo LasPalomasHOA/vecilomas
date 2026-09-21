@@ -20,17 +20,21 @@ export function QRPassGenerator({
 }: QRPassGeneratorProps) {
   const { residents, generateAccessPass } = useData()
 
+  const todayStr = new Date().toISOString().split('T')[0]
+  const currentHour = new Date().getHours()
+  const defaultTime = `${String(Math.min(23, currentHour + 2)).padStart(2, '0')}:00`
+
   const [form, setForm] = useState({
     visitor: '',
-    unit: defaultUnit || (residents[0]?.unit || ''),
-    host: defaultHost || (residents[0]?.name || ''),
-    date: new Date().toISOString().split('T')[0],
-    time: '18:00',
+    unit: defaultUnit || (residents[0]?.unit || 'A-101'),
+    host: defaultHost || (residents[0]?.name || 'Carlos Mendoza Ruiz'),
+    date: todayStr,
+    time: defaultTime,
     type: 'Visita' as VisitType,
   })
 
   const [createdPass, setCreatedPass] = useState<AccessPass | null>(null)
-  const [passImageUrl, setPassImageUrl] = useState<string | null>(null)
+  const [, setPassImageUrl] = useState<string | null>(null)
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null)
   const [isSharing, setIsSharing] = useState(false)
   const [isDownloading, setIsDownloading] = useState(false)
@@ -53,6 +57,38 @@ export function QRPassGenerator({
       active = false
     }
   }, [createdPass])
+
+  function applyPreset(presetType: 'delivery' | 'family' | 'service') {
+    const now = new Date()
+    const dStr = now.toISOString().split('T')[0]
+
+    if (presetType === 'delivery') {
+      const hStr = `${String(Math.min(23, now.getHours() + 2)).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`
+      setForm(f => ({
+        ...f,
+        visitor: 'Repartidor / Paquetería',
+        type: 'Repartidor',
+        date: dStr,
+        time: hStr,
+      }))
+    } else if (presetType === 'family') {
+      setForm(f => ({
+        ...f,
+        visitor: 'Visita Familiar',
+        type: 'Familiar',
+        date: dStr,
+        time: '23:59',
+      }))
+    } else if (presetType === 'service') {
+      setForm(f => ({
+        ...f,
+        visitor: 'Técnico de Mantenimiento',
+        type: 'Técnico',
+        date: dStr,
+        time: '18:00',
+      }))
+    }
+  }
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -84,8 +120,8 @@ export function QRPassGenerator({
       }
     } catch (err) {
       console.error('Error al compartir pase por WhatsApp:', err)
-      setCopyFeedback('No se pudo compartir la imagen directamente.')
-      setTimeout(() => setCopyFeedback(null), 4000)
+      const text = `¡Hola ${createdPass.visitor}! Te comparto tu Pase de Acceso Digital para Las Palomas Residencial:\n\nCódigo de Caseta: ${createdPass.code}\nUnidad: ${createdPass.unit} (${createdPass.host})\nVigencia: ${createdPass.validDate} a las ${createdPass.validTime} hrs\n\nPor favor muestra este código al oficial de caseta al llegar.`
+      window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, '_blank')
     } finally {
       setIsSharing(false)
     }
@@ -108,7 +144,7 @@ export function QRPassGenerator({
   function handleCopyCode() {
     if (!createdPass) return
     navigator.clipboard.writeText(createdPass.code)
-    setCopyFeedback('¡Código alfanumérico copiado al portapapeles!')
+    setCopyFeedback('¡Código de caseta copiado al portapapeles!')
     setTimeout(() => setCopyFeedback(null), 3000)
   }
 
@@ -116,9 +152,9 @@ export function QRPassGenerator({
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
       {/* Form Card */}
       <GCard p="p-6 sm:p-7">
-        <div className="mb-6 pb-4 border-b border-teal-950/[0.06] flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-teal-500/20 to-teal-700/10 border border-teal-500/25 text-teal-800 flex items-center justify-center shrink-0 shadow-[0_2px_8px_rgba(0,128,128,0.15)]">
-            <Ico n="qr" c="w-5 h-5" />
+        <div className="mb-5 pb-4 border-b border-teal-950/[0.06] flex items-center gap-3.5">
+          <div className="w-11 h-11 rounded-2xl bg-teal-50 border border-teal-200 text-teal-800 flex items-center justify-center shrink-0 shadow-xs">
+            <Ico n="qr" c="w-5 h-5 text-teal-700" />
           </div>
           <div>
             <h3 className="font-display font-bold text-slate-900 text-lg leading-tight">
@@ -127,6 +163,46 @@ export function QRPassGenerator({
             <p className="text-xs text-slate-500 mt-0.5">
               Genera una tarjeta con código QR descargable y compartible como imagen en WhatsApp.
             </p>
+          </div>
+        </div>
+
+        {/* 1-Click Fast Presets */}
+        <div className="mb-5">
+          <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Plantillas Rápidas (1-Clic)</p>
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              type="button"
+              onClick={() => applyPreset('delivery')}
+              className="p-2.5 rounded-xl border border-teal-200 bg-teal-50/70 hover:bg-teal-100/70 text-left transition-all cursor-pointer group"
+            >
+              <p className="text-xs font-bold text-teal-950 inline-flex items-center gap-1.5">
+                <Ico n="truck" c="w-3.5 h-3.5 text-teal-700" />
+                Repartidor
+              </p>
+              <p className="text-[10px] text-teal-700 mt-0.5">Vigencia 2 hrs</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => applyPreset('family')}
+              className="p-2.5 rounded-xl border border-indigo-200 bg-indigo-50/70 hover:bg-indigo-100/70 text-left transition-all cursor-pointer group"
+            >
+              <p className="text-xs font-bold text-indigo-950 inline-flex items-center gap-1.5">
+                <Ico n="car" c="w-3.5 h-3.5 text-indigo-700" />
+                Familiar
+              </p>
+              <p className="text-[10px] text-indigo-700 mt-0.5">Todo el día</p>
+            </button>
+            <button
+              type="button"
+              onClick={() => applyPreset('service')}
+              className="p-2.5 rounded-xl border border-amber-200 bg-amber-50/70 hover:bg-amber-100/70 text-left transition-all cursor-pointer group"
+            >
+              <p className="text-xs font-bold text-amber-950 inline-flex items-center gap-1.5">
+                <Ico n="tool" c="w-3.5 h-3.5 text-amber-700" />
+                Técnico
+              </p>
+              <p className="text-[10px] text-amber-700 mt-0.5">Jornada 8 hrs</p>
+            </button>
           </div>
         </div>
 
@@ -140,7 +216,7 @@ export function QRPassGenerator({
               value={form.visitor}
               onChange={e => setForm(f => ({ ...f, visitor: e.target.value }))}
               placeholder="Ej. Laura Gómez Pérez"
-              className="w-full px-4 py-2.5 text-sm rounded-xl bg-slate-50/90 border border-slate-200/80 focus:bg-white focus:border-teal-600 focus:shadow-[0_0_0_3px_rgba(0,128,128,0.1)] focus:outline-none transition-all font-medium text-slate-900"
+              className="w-full px-4 py-2.5 text-sm rounded-xl bg-slate-50/90 border border-slate-200/80 focus:bg-white focus:border-teal-600 focus:outline-none transition-all font-medium text-slate-900"
             />
           </div>
 
@@ -163,7 +239,7 @@ export function QRPassGenerator({
                     const res = residents.find(r => r.unit === u)
                     setForm(f => ({ ...f, unit: u, host: res ? res.name : f.host }))
                   }}
-                  className="w-full px-4 py-2.5 text-sm rounded-xl bg-slate-50/90 border border-slate-200/80 focus:bg-white focus:border-teal-600 focus:shadow-[0_0_0_3px_rgba(0,128,128,0.1)] focus:outline-none transition-all font-medium text-slate-800"
+                  className="w-full px-4 py-2.5 text-sm rounded-xl bg-slate-50/90 border border-slate-200/80 focus:bg-white focus:border-teal-600 focus:outline-none transition-all font-medium text-slate-800"
                 >
                   {residents.map(r => (
                     <option key={r.id} value={r.unit}>
@@ -181,9 +257,9 @@ export function QRPassGenerator({
               <select
                 value={form.type}
                 onChange={e => setForm(f => ({ ...f, type: e.target.value as VisitType }))}
-                className="w-full px-4 py-2.5 text-sm rounded-xl bg-slate-50/90 border border-slate-200/80 focus:bg-white focus:border-teal-600 focus:shadow-[0_0_0_3px_rgba(0,128,128,0.1)] focus:outline-none transition-all font-medium text-slate-800"
+                className="w-full px-4 py-2.5 text-sm rounded-xl bg-slate-50/90 border border-slate-200/80 focus:bg-white focus:border-teal-600 focus:outline-none transition-all font-medium text-slate-800"
               >
-                <option value="Visita">Visita / Amigo</option>
+                <option value="Visita">Visita General</option>
                 <option value="Familiar">Familiar</option>
                 <option value="Repartidor">Repartidor (Delivery)</option>
                 <option value="Técnico">Servicio Técnico</option>
@@ -202,7 +278,7 @@ export function QRPassGenerator({
                 type="date"
                 value={form.date}
                 onChange={e => setForm(f => ({ ...f, date: e.target.value }))}
-                className="w-full px-4 py-2.5 text-sm rounded-xl bg-slate-50/90 border border-slate-200/80 focus:bg-white focus:border-teal-600 focus:shadow-[0_0_0_3px_rgba(0,128,128,0.1)] focus:outline-none transition-all font-medium text-slate-800"
+                className="w-full px-4 py-2.5 text-sm rounded-xl bg-slate-50/90 border border-slate-200/80 focus:bg-white focus:border-teal-600 focus:outline-none transition-all font-medium text-slate-800"
               />
             </div>
             <div>
@@ -214,13 +290,13 @@ export function QRPassGenerator({
                 type="time"
                 value={form.time}
                 onChange={e => setForm(f => ({ ...f, time: e.target.value }))}
-                className="w-full px-4 py-2.5 text-sm rounded-xl bg-slate-50/90 border border-slate-200/80 focus:bg-white focus:border-teal-600 focus:shadow-[0_0_0_3px_rgba(0,128,128,0.1)] focus:outline-none transition-all font-medium text-slate-800"
+                className="w-full px-4 py-2.5 text-sm rounded-xl bg-slate-50/90 border border-slate-200/80 focus:bg-white focus:border-teal-600 focus:outline-none transition-all font-medium text-slate-800"
               />
             </div>
           </div>
 
           <div className="pt-2">
-            <Btn type="submit" className="w-full py-3 font-bold shadow-[0_4px_16px_rgba(0,128,128,0.25)]">
+            <Btn type="submit" className="w-full py-3 font-bold shadow-sm">
               <Ico n="qr" c="w-5 h-5" />
               Generar Pase QR Digital
             </Btn>
@@ -231,8 +307,8 @@ export function QRPassGenerator({
       {/* Luxury Digital Boarding Pass Ticket Presentation */}
       <div className="flex flex-col justify-center">
         {createdPass ? (
-          <div className="rounded-3xl overflow-hidden shadow-[0_20px_50px_rgba(0,51,51,0.14)] border border-teal-950/15 bg-white animate-fade-in relative">
-            {/* Top Header of the Boarding Pass */}
+          <div className="rounded-3xl overflow-hidden shadow-xl border border-teal-950/15 bg-white animate-fade-in relative">
+            {/* Top Header */}
             <div
               className="p-5 sm:p-6 text-white relative overflow-hidden"
               style={{
@@ -246,71 +322,67 @@ export function QRPassGenerator({
                   <div className="flex items-center gap-1.5">
                     <span className="w-1.5 h-1.5 rounded-full bg-teal-300 animate-pulse" />
                     <p className="text-[10px] text-teal-300 uppercase tracking-widest font-mono font-bold">
-                      ✦ PASE DE ACCESO DIGITAL VIP
+                      PASE DE ACCESO RESIDENCIAL
                     </p>
                   </div>
-                  <h4 className="text-xl font-display font-extrabold text-white mt-1">
+                  <h4 className="text-xl sm:text-2xl font-display font-extrabold mt-1 tracking-tight">
                     Las Palomas Residencial
                   </h4>
                 </div>
-                <div className="px-3 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/20 text-teal-100 text-xs font-bold shadow-xs">
-                  {createdPass.visitType}
-                </div>
-              </div>
-
-              <div className="mt-4 pt-3 border-t border-white/15 flex justify-between text-xs">
-                <div>
-                  <p className="text-[10px] font-mono text-teal-200/80 uppercase font-semibold">Invitado:</p>
-                  <p className="font-bold text-base text-white">{createdPass.visitor}</p>
-                </div>
                 <div className="text-right">
-                  <p className="text-[10px] font-mono text-teal-200/80 uppercase font-semibold">Destino:</p>
-                  <p className="font-display font-extrabold text-base text-teal-300">Unidad {createdPass.unit}</p>
+                  <span className="text-[10px] font-mono uppercase tracking-wider px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-md border border-white/20 font-bold">
+                    {createdPass.visitType}
+                  </span>
                 </div>
               </div>
             </div>
 
-            {/* Middle QR Code Section */}
-            <div className="p-6 sm:p-8 bg-slate-50/80 flex flex-col items-center justify-center text-center relative border-y border-dashed border-slate-300">
-              {/* Ticket Cutout Semi-Circles */}
-              <div className="absolute -left-3 top-[-12px] w-6 h-6 rounded-full bg-slate-100 border-r border-slate-300/80" />
-              <div className="absolute -right-3 top-[-12px] w-6 h-6 rounded-full bg-slate-100 border-l border-slate-300/80" />
+            {/* Middle QR Code and Key Details */}
+            <div className="p-6 sm:p-8 flex flex-col items-center justify-center text-center bg-white">
+              <div className="p-3 bg-white border-2 border-dashed border-teal-800/25 rounded-2xl shadow-sm mb-4">
+                <QRVisual seed={createdPass.code} size={6} />
+              </div>
+
+              <p className="text-xs font-mono font-semibold text-slate-400 uppercase tracking-widest">
+                Código de Caseta
+              </p>
+              <p className="text-3xl sm:text-4xl font-mono font-black text-slate-900 tracking-wider my-1">
+                {createdPass.code}
+              </p>
+
+              <div className="w-full grid grid-cols-2 gap-3 mt-4 pt-4 border-t border-slate-100 text-left">
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                  <p className="text-[10px] font-mono text-slate-400 uppercase font-semibold">Visitante</p>
+                  <p className="text-sm font-bold text-slate-900 truncate mt-0.5">{createdPass.visitor}</p>
+                </div>
+                <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
+                  <p className="text-[10px] font-mono text-slate-400 uppercase font-semibold">Unidad / Anfitrión</p>
+                  <p className="text-sm font-bold text-slate-900 truncate mt-0.5">
+                    {createdPass.unit} · {createdPass.host.split(' ')[0]}
+                  </p>
+                </div>
+              </div>
+
+              <div className="w-full p-2.5 rounded-xl bg-teal-50/70 border border-teal-100 mt-2 text-center">
+                <p className="text-xs text-teal-900 font-semibold inline-flex items-center justify-center gap-1.5 w-full">
+                  <Ico n="calendar" c="w-3.5 h-3.5 text-teal-700 shrink-0" />
+                  <span>Vigencia: <strong>{createdPass.validDate}</strong> a las <strong>{createdPass.validTime} hrs</strong></span>
+                </p>
+              </div>
 
               {copyFeedback && (
-                <div className="mb-3 p-2.5 rounded-xl bg-teal-50 text-teal-800 border border-teal-200 text-xs font-bold animate-fade-in shadow-2xs">
+                <div className="mt-3 p-2 rounded-lg bg-teal-50 border border-teal-200 text-teal-800 text-xs font-semibold animate-fade-in">
                   {copyFeedback}
                 </div>
               )}
 
-              {/* QR Visual Container */}
-              <div className="mb-4 bg-white p-4 rounded-3xl shadow-[0_4px_16px_rgba(0,51,51,0.08)] border border-teal-950/[0.08] relative">
-                <QRVisual seed={createdPass.code} size={7} />
-              </div>
-
-              {/* Code Chip */}
-              <div
-                onClick={handleCopyCode}
-                title="Haz clic para copiar"
-                className="inline-flex items-center gap-2 font-mono text-xs font-bold text-slate-900 bg-white px-4 py-2 rounded-xl border border-teal-950/[0.12] shadow-xs cursor-pointer hover:bg-teal-50 hover:border-teal-500/40 transition-all group"
-              >
-                <span>{createdPass.code}</span>
-                <Ico n="tag" c="w-3.5 h-3.5 text-teal-600 group-hover:scale-110 transition-transform" />
-              </div>
-
-              <p className="text-xs text-slate-500 mt-3 font-medium">
-                Válido para: <strong className="text-slate-900 font-bold">{createdPass.validDate}</strong> a las{' '}
-                <strong className="text-slate-900 font-bold">{createdPass.validTime} hrs</strong>
-              </p>
-            </div>
-
-            {/* Bottom Sharing Strip */}
-            <div className="p-4 bg-white space-y-2.5">
-              <div className="flex flex-col sm:flex-row gap-2.5">
+              {/* Action Buttons */}
+              <div className="w-full space-y-2.5 mt-5">
                 <Btn
                   variant="whatsapp"
                   onClick={handleShareWhatsApp}
                   disabled={isSharing}
-                  className="w-full sm:flex-1 font-bold whitespace-nowrap justify-center py-2.5 shadow-[0_4px_12px_rgba(16,185,129,0.3)] flex items-center gap-2"
+                  className="w-full font-bold whitespace-nowrap justify-center py-2.5 shadow-[0_4px_12px_rgba(16,185,129,0.3)] flex items-center gap-2"
                 >
                   {isSharing ? (
                     <>
@@ -320,47 +392,48 @@ export function QRPassGenerator({
                   ) : (
                     <>
                       <Ico n="whatsapp" c="w-4 h-4 shrink-0" />
-                      <span>Compartir Imagen por WhatsApp</span>
+                      <span>Enviar Imagen por WhatsApp</span>
                     </>
                   )}
                 </Btn>
-              </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={handleDownloadImage}
-                  disabled={isDownloading}
-                  className="w-full py-2 px-3 text-xs font-bold rounded-xl border border-teal-950/[0.15] text-slate-700 hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
-                >
-                  <Ico n="dl" c="w-3.5 h-3.5 text-teal-700" />
-                  <span>{isDownloading ? 'Descargando...' : 'Descargar Imagen (PNG)'}</span>
-                </button>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={handleDownloadImage}
+                    disabled={isDownloading}
+                    className="w-full py-2 px-3 text-xs font-bold rounded-xl border border-teal-950/[0.15] text-slate-700 hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                  >
+                    <Ico n="dl" c="w-3.5 h-3.5 text-teal-700" />
+                    <span>{isDownloading ? 'Descargando...' : 'Descargar Imagen'}</span>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={handleCopyCode}
-                  className="w-full py-2 px-3 text-xs font-bold rounded-xl border border-teal-950/[0.15] text-slate-700 hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
-                >
-                  <Ico n="tag" c="w-3.5 h-3.5 text-slate-500" />
-                  <span>Copiar Código</span>
-                </button>
+                  <button
+                    type="button"
+                    onClick={handleCopyCode}
+                    className="w-full py-2 px-3 text-xs font-bold rounded-xl border border-teal-950/[0.15] text-slate-700 hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                  >
+                    <Ico n="copy" c="w-3.5 h-3.5 text-slate-500" />
+                    <span>Copiar Clave</span>
+                  </button>
+                </div>
               </div>
             </div>
           </div>
         ) : (
-          <GCard p="p-8" className="text-center min-h-[380px] flex flex-col items-center justify-center">
-            <div className="w-20 h-20 rounded-3xl flex items-center justify-center mx-auto mb-4 bg-gradient-to-br from-teal-500/20 to-teal-700/10 border border-teal-500/25 text-teal-800 shadow-[0_4px_16px_rgba(0,128,128,0.15)]">
-              <Ico n="qr" c="w-9 h-9" />
+          <div className="h-full min-h-[300px] rounded-3xl border-2 border-dashed border-slate-200 flex flex-col items-center justify-center p-8 text-center bg-slate-50/50">
+            <div className="w-14 h-14 rounded-2xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-700 mb-3">
+              <Ico n="qr" c="w-7 h-7" />
             </div>
-            <p className="font-display font-bold text-slate-900 text-lg">Pase Digital sin emitir</p>
-            <p className="text-xs text-slate-500 mt-1.5 max-w-xs leading-relaxed">
-              Completa el formulario con los datos de tu invitado para generar la invitación digital con código QR instantáneo y compartirla como imagen.
+            <h4 className="font-display font-bold text-slate-800 text-base">Vista Previa del Pase</h4>
+            <p className="text-xs text-slate-500 max-w-xs mt-1">
+              Completa el formulario o selecciona una plantilla rápida para generar la ficha digital con código QR.
             </p>
-          </GCard>
+          </div>
         )}
       </div>
     </div>
   )
 }
+
 export default QRPassGenerator
