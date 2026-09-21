@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import jsQR from 'jsqr'
 import type { QRValidationResult } from '@/types/access'
 import { useData } from '@/context/DataContext'
 import GCard from '@/components/common/Card'
@@ -6,18 +7,206 @@ import Btn from '@/components/common/Button'
 import Badge from '@/components/common/Badge'
 import Ico from '@/components/common/Icons'
 
+function playBeep(success = true) {
+  try {
+    const AudioCtx = window.AudioContext || (window as any).webkitAudioContext
+    if (!AudioCtx) return
+    const ctx = new AudioCtx()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.type = 'sine'
+    if (success) {
+      osc.frequency.setValueAtTime(880, ctx.currentTime)
+      osc.frequency.exponentialRampToValueAtTime(1320, ctx.currentTime + 0.15)
+      gain.gain.setValueAtTime(0.2, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.25)
+      osc.start(ctx.currentTime)
+      osc.stop(ctx.currentTime + 0.25)
+    } else {
+      osc.frequency.setValueAtTime(320, ctx.currentTime)
+      osc.frequency.setValueAtTime(220, ctx.currentTime + 0.15)
+      gain.gain.setValueAtTime(0.25, ctx.currentTime)
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3)
+      osc.start(ctx.currentTime)
+      osc.stop(ctx.currentTime + 0.3)
+    }
+  } catch (e) {
+    // Audio context ignorado si el navegador lo bloquea
+  }
+}
+
 export function GuardValidationTablet() {
   const { validateQRCode, checkInVisit, visits, checkOutVisit } = useData()
   const [code, setCode] = useState('')
   const [validationResult, setValidationResult] = useState<QRValidationResult | null>(null)
   const [vehiclePlate, setVehiclePlate] = useState('')
   const [cameraActive, setCameraActive] = useState(false)
+  const [cameraError, setCameraError] = useState<string | null>(null)
+  const [cameraDevices, setCameraDevices] = useState<MediaDeviceInfo[]>([])
+  const [selectedDeviceId, setSelectedDeviceId] = useState<string>('')
   const [successToast, setSuccessToast] = useState<string | null>(null)
+  const [isScanningFile, setIsScanningFile] = useState(false)
+
+  const videoRef = useRef<HTMLVideoElement | null>(null)
+  const canvasRef = useRef<HTMLCanvasElement | null>(null)
+  const streamRef = useRef<MediaStream | null>(null)
+  const animFrameIdRef = useRef<number | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Enumerar cámaras al cargar
+  useEffect(() => {
+    if (navigator.mediaDevices && navigator.mediaDevices.enumerateDevices) {
+      navigator.mediaDevices.enumerateDevices().then(devices => {
+        const videoInputs = devices.filter(d => d.kind === 'videoinput')
+        setCameraDevices(videoInputs)
+        if (videoInputs.length > 0) {
+          setSelectedDeviceId(videoInputs[0].deviceId)
+        }
+      }).catch(err => console.warn('Error listando dispositivos de video:', err))
+    }
+  }, [])
+
+  const stopCamera = useCallback(() => {
+    if (animFrameIdRef.current) {
+      cancelAnimationFrame(animFrameIdRef.current)
+      animFrameIdRef.current = null
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => {
+        try {
+          track.stop()
+        } catch (e) {}
+      })
+      streamRef.current = null
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null
+    }
+  }, [])
+
+  const handleOnDecoded = useCallback((scannedText: string) => {
+    if (!scannedText) return
+
+    if (typeof navigator !== 'undefined' && navigator.vibrate) {
+      navigator.vibrate([100, 50, 100])
+    }
+
+    setCode(scannedText)
+    const result = validateQRCode(scannedText)
+    setValidationResult(result)
+
+    if (result.valid) {
+      playBeep(true)
+    } else {
+      playBeep(false)
+    }
+
+    stopCamera()
+    setCameraActive(false)
+  }, [validateQRCode, stopCamera])
+
+  // Ciclo de escaneo por cámara de video
+  useEffect(() => {
+    if (!cameraActive) {
+      stopCamera()
+      return
+    }
+
+    // Detener cualquier stream anterior
+    stopCamera()
+
+    const startCamera = async () => {
+      try {
+        const constraints: MediaStreamConstraints = {
+          video: selectedDeviceId
+            ? { deviceId: selectedDeviceId }
+            : { facingMode: 'environment' },
+          audio: false,
+        }
+
+        let stream: MediaStream
+        try {
+          stream = await navigator.mediaDevices.getUserMedia(constraints)
+        } catch (firstErr: any) {
+          // Fallback a cualquier cámara disponible
+          console.warn('Fallo primer intento con restricciones, probando fallback básico:', firstErr)
+          stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false })
+        }
+
+        streamRef.current = stream
+        const video = videoRef.current
+        if (!video) return
+
+        video.srcObject = stream
+        video.setAttribute('playsinline', 'true')
+        await video.play().catch(e => console.warn('Video play warning:', e))
+
+        // Bucle de lectura de fotogramas
+        const scanLoop = () => {
+          if (!videoRef.current || !canvasRef.current || !streamRef.current) return
+
+          const videoEl = videoRef.current
+          const canvasEl = canvasRef.current
+
+          if (videoEl.readyState >= 2 && videoEl.videoWidth > 0) {
+            canvasEl.width = videoEl.videoWidth
+            canvasEl.height = videoEl.videoHeight
+            const ctx = canvasEl.getContext('2d', { willReadFrequently: true })
+
+            if (ctx) {
+              ctx.drawImage(videoEl, 0, 0, canvasEl.width, canvasEl.height)
+              const imageData = ctx.getImageData(0, 0, canvasEl.width, canvasEl.height)
+              const qr = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: 'dontInvert',
+              })
+
+              if (qr && qr.data) {
+                handleOnDecoded(qr.data)
+                return // Detener loop
+              }
+            }
+          }
+
+          animFrameIdRef.current = requestAnimationFrame(scanLoop)
+        }
+
+        animFrameIdRef.current = requestAnimationFrame(scanLoop)
+      } catch (err: any) {
+        console.error('Error accediendo a la cámara:', err)
+        if (err.name === 'NotReadableError') {
+          setCameraError(
+            'La cámara está en uso por otra aplicación o pestaña del navegador. Ciérrala o selecciona otra cámara.'
+          )
+        } else if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          setCameraError(
+            'Permiso de cámara denegado. Permite el acceso a la cámara en los ajustes de tu navegador.'
+          )
+        } else {
+          setCameraError(
+            'No se pudo iniciar la cámara. Puedes ingresar el código manualmente o subir una imagen del QR.'
+          )
+        }
+      }
+    }
+
+    startCamera()
+
+    return () => {
+      stopCamera()
+    }
+  }, [cameraActive, selectedDeviceId, handleOnDecoded, stopCamera])
 
   function handleVerify() {
     if (!code.trim()) return
     const result = validateQRCode(code)
     setValidationResult(result)
+    if (result.valid) {
+      playBeep(true)
+    } else {
+      playBeep(false)
+    }
   }
 
   function handleConfirmEntry() {
@@ -41,17 +230,53 @@ export function GuardValidationTablet() {
     setCameraActive(false)
   }
 
-  function simulateQRScan(sampleCode: string) {
-    setCode(sampleCode)
-    const res = validateQRCode(sampleCode)
-    setValidationResult(res)
-    setCameraActive(false)
+  // Escanear archivo de imagen subido
+  function handleScanFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    setIsScanningFile(true)
+    setCameraError(null)
+
+    const reader = new FileReader()
+    reader.onload = (event) => {
+      const img = new Image()
+      img.onload = () => {
+        const offCanvas = document.createElement('canvas')
+        offCanvas.width = img.width
+        offCanvas.height = img.height
+        const offCtx = offCanvas.getContext('2d')
+        if (offCtx) {
+          offCtx.drawImage(img, 0, 0)
+          const imgData = offCtx.getImageData(0, 0, offCanvas.width, offCanvas.height)
+          const qr = jsQR(imgData.data, imgData.width, imgData.height)
+          if (qr && qr.data) {
+            handleOnDecoded(qr.data)
+          } else {
+            setCameraError('No se encontró ningún código QR legible en la imagen.')
+            playBeep(false)
+          }
+        }
+        setIsScanningFile(false)
+      }
+      img.onerror = () => {
+        setCameraError('Error al leer el archivo de imagen.')
+        setIsScanningFile(false)
+      }
+      img.src = event.target?.result as string
+    }
+    reader.readAsDataURL(file)
+
+    if (e.target) e.target.value = ''
   }
 
   const activeVisitors = visits.filter(v => v.status === 'En Instalaciones')
 
   return (
     <div className="space-y-6">
+      {/* Canvas oculto para procesar fotogramas */}
+      <canvas ref={canvasRef} className="hidden" />
+
       {/* Toast Alert */}
       {successToast && (
         <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-sm font-bold flex items-center gap-3 animate-fade-in shadow-md">
@@ -78,7 +303,7 @@ export function GuardValidationTablet() {
                 <h3 className="font-display font-bold text-slate-900 text-base sm:text-lg leading-tight truncate">
                   Caseta de Control — Validación QR
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5 truncate">Escaneo de código y confirmación de acceso</p>
+                <p className="text-xs text-slate-500 mt-0.5 truncate">Escaneo en vivo por cámara y confirmación de acceso</p>
               </div>
             </div>
             <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-teal-950 text-teal-200 border border-teal-500/30 whitespace-nowrap shrink-0 shadow-xs">
@@ -87,62 +312,119 @@ export function GuardValidationTablet() {
             </span>
           </div>
 
-          {/* Camera Scan Simulation View */}
+          {/* Real Camera Scanner View */}
           <div
-            className={`rounded-3xl p-5 sm:p-6 text-center mb-5 border transition-all duration-300 relative overflow-hidden ${
+            className={`rounded-3xl p-4 sm:p-5 text-center mb-5 border transition-all duration-300 relative overflow-hidden ${
               cameraActive
-                ? 'border-teal-400/60 bg-slate-950 text-white shadow-2xl'
+                ? 'border-teal-500/80 bg-slate-950 text-white shadow-2xl'
                 : 'border-dashed border-teal-900/20 bg-slate-50/80 text-slate-700'
             }`}
           >
             {cameraActive ? (
-              <div className="py-4 sm:py-6 space-y-4">
-                <div
-                  className="w-40 h-40 sm:w-48 sm:h-48 mx-auto border-2 border-teal-400 rounded-3xl relative flex items-center justify-center bg-slate-900/70"
-                  style={{
-                    boxShadow: '0 0 35px rgba(20, 184, 166, 0.35), inset 0 0 25px rgba(20, 184, 166, 0.2)',
-                  }}
-                >
-                  <div className="absolute inset-x-2 top-1/2 h-0.5 bg-teal-300 shadow-[0_0_16px_#2dd4bf] animate-pulse" />
-                  <Ico n="qr" c="w-20 h-20 sm:w-24 sm:h-24 text-teal-400/40" />
+              <div className="space-y-3.5">
+                {/* Switch camera if multiple exist */}
+                {cameraDevices.length > 1 && (
+                  <div className="flex items-center justify-center gap-2">
+                    <span className="text-[11px] text-teal-300 font-medium">Cámara:</span>
+                    <select
+                      value={selectedDeviceId}
+                      onChange={e => setSelectedDeviceId(e.target.value)}
+                      className="text-xs bg-slate-900 text-teal-200 border border-teal-500/40 rounded-lg px-2.5 py-1 focus:outline-none"
+                    >
+                      {cameraDevices.map((d, i) => (
+                        <option key={d.deviceId || i} value={d.deviceId}>
+                          {d.label || `Cámara ${i + 1}`}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+
+                {/* Real Native Video Scanner Container */}
+                <div className="relative rounded-2xl overflow-hidden bg-black max-w-[340px] mx-auto border-2 border-teal-400 shadow-[0_0_30px_rgba(20,184,166,0.3)] aspect-square flex items-center justify-center">
+                  <video
+                    ref={videoRef}
+                    autoPlay
+                    playsInline
+                    muted
+                    className="w-full h-full object-cover"
+                  />
+                  
+                  {/* Futuristic Scanner Laser Line Overlay */}
+                  <div className="absolute inset-x-4 top-1/2 h-0.5 bg-gradient-to-r from-transparent via-teal-400 to-transparent shadow-[0_0_16px_#2dd4bf] animate-pulse pointer-events-none" />
+
+                  {/* Corner Targets */}
+                  <div className="absolute top-4 left-4 w-6 h-6 border-t-2 border-l-2 border-teal-300 pointer-events-none" />
+                  <div className="absolute top-4 right-4 w-6 h-6 border-t-2 border-r-2 border-teal-300 pointer-events-none" />
+                  <div className="absolute bottom-4 left-4 w-6 h-6 border-b-2 border-l-2 border-teal-300 pointer-events-none" />
+                  <div className="absolute bottom-4 right-4 w-6 h-6 border-b-2 border-r-2 border-teal-300 pointer-events-none" />
                 </div>
-                <p className="text-xs sm:text-sm font-mono text-teal-300 font-bold animate-pulse">
-                  [Cámara activa] Detectando código QR...
+
+                <p className="text-xs font-mono text-teal-300 font-bold animate-pulse">
+                  ✦ Apunta la cámara al código QR de la visita...
                 </p>
-                <div className="flex flex-wrap justify-center gap-2 pt-2">
+
+                <div className="flex flex-wrap justify-center gap-2 pt-1">
                   <button
-                    onClick={() => simulateQRScan('VCN-LAU-A101-X4F9')}
-                    className="px-4 py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-500 text-white transition-all cursor-pointer whitespace-nowrap shadow-[0_4px_12px_rgba(0,128,128,0.3)]"
-                  >
-                    Simular Pase Válido
-                  </button>
-                  <button
+                    type="button"
                     onClick={() => setCameraActive(false)}
-                    className="px-4 py-2 rounded-xl text-xs font-semibold bg-white/15 text-white hover:bg-white/25 transition-colors cursor-pointer whitespace-nowrap"
+                    className="px-5 py-2 rounded-xl text-xs font-bold bg-white/20 text-white hover:bg-white/30 transition-colors cursor-pointer whitespace-nowrap shadow-xs"
                   >
-                    Cerrar Cámara
+                    Detener Cámara
                   </button>
                 </div>
               </div>
             ) : (
-              <div className="py-4">
-                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-3 bg-white text-teal-700 shadow-xs border border-teal-950/[0.08]">
+              <div className="py-4 space-y-3">
+                <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto bg-white text-teal-700 shadow-xs border border-teal-950/[0.08]">
                   <Ico n="camera" c="w-8 h-8" />
                 </div>
-                <p className="font-display font-bold text-slate-900 text-base">Escáner de Cámara QR</p>
-                <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
-                  Apunta la cámara de la tablet al código digital presentado por el visitante en su teléfono.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setCameraActive(true)}
-                  className="mt-4 px-6 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-teal-700 to-teal-900 hover:from-teal-600 hover:to-teal-800 transition-all cursor-pointer shadow-[0_4px_14px_rgba(0,128,128,0.25)]"
-                >
-                  Activar Escáner de Cámara
-                </button>
+                <div>
+                  <p className="font-display font-bold text-slate-900 text-base">Escáner de Cámara QR en Vivo</p>
+                  <p className="text-xs text-slate-500 mt-1 max-w-xs mx-auto">
+                    Activa la cámara para escanear en tiempo real el pase mostrado en el celular del visitante.
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-center gap-2.5 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setCameraActive(true)}
+                    className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-white bg-gradient-to-r from-teal-700 to-teal-900 hover:from-teal-600 hover:to-teal-800 transition-all cursor-pointer shadow-[0_4px_14px_rgba(0,128,128,0.25)] flex items-center gap-2"
+                  >
+                    <Ico n="camera" c="w-4 h-4" />
+                    <span>Activar Cámara en Vivo</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isScanningFile}
+                    className="px-4 py-2.5 rounded-xl text-xs font-bold text-slate-700 bg-white border border-slate-200/90 hover:bg-slate-50 transition-all cursor-pointer shadow-2xs flex items-center gap-2"
+                  >
+                    <Ico n="image" c="w-4 h-4 text-teal-700" />
+                    <span>{isScanningFile ? 'Escaneando...' : 'Escanear Imagen / Foto'}</span>
+                  </button>
+                </div>
+
+                {/* Hidden file input */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleScanFile}
+                  className="hidden"
+                />
               </div>
             )}
           </div>
+
+          {cameraError && (
+            <div className="mb-4 p-3 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2 animate-fade-in">
+              <Ico n="info" c="w-4 h-4 text-red-500 shrink-0" />
+              <span>{cameraError}</span>
+            </div>
+          )}
 
           <p className="text-xs text-center text-slate-400 mb-3 font-mono font-medium">
             — O ingresa el código alfanumérico manualmente —
@@ -157,7 +439,7 @@ export function GuardValidationTablet() {
                 setValidationResult(null)
               }}
               onKeyDown={e => e.key === 'Enter' && handleVerify()}
-              placeholder="Ej. VCN-LAU-A101-X4F9"
+              placeholder="Ej. VCN-JUA-SN-GLG9"
               className="flex-1 px-4 py-2.5 text-sm font-mono font-bold rounded-xl bg-slate-50/90 border border-slate-200/80 focus:bg-white focus:border-teal-600 focus:outline-none placeholder:text-slate-400 uppercase transition-all"
             />
             <Btn onClick={handleVerify} className="px-6 py-2.5 font-bold text-sm shadow-[0_4px_14px_rgba(0,128,128,0.2)]">
@@ -203,6 +485,10 @@ export function GuardValidationTablet() {
                       <span className="text-slate-500 whitespace-nowrap font-medium">Tipo de Acceso:</span>
                       <Badge text={validationResult.pass.visitType} />
                     </div>
+                    <div className="flex justify-between items-center gap-2 pt-1 border-t border-slate-100">
+                      <span className="text-slate-500 whitespace-nowrap font-medium">Código:</span>
+                      <span className="font-mono font-bold text-teal-700">{validationResult.pass.code}</span>
+                    </div>
                   </div>
 
                   <div>
@@ -213,7 +499,7 @@ export function GuardValidationTablet() {
                       value={vehiclePlate}
                       onChange={e => setVehiclePlate(e.target.value)}
                       placeholder="Ej. MXC-9921"
-                      className="w-full px-3.5 py-2 text-sm rounded-xl font-mono font-bold bg-white border border-slate-200 focus:border-teal-500 focus:outline-none text-slate-900"
+                      className="w-full px-3.5 py-2 text-sm font-mono font-bold bg-white border border-slate-200 focus:border-teal-500 focus:outline-none text-slate-900"
                     />
                   </div>
 
@@ -276,7 +562,14 @@ export function GuardValidationTablet() {
                       {v.unit}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="font-bold text-slate-900 text-sm truncate">{v.visitor}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-bold text-slate-900 text-sm truncate">{v.visitor}</p>
+                        {v.plate && (
+                          <span className="text-[10px] font-mono font-bold bg-slate-200 px-1.5 py-0.2 rounded text-slate-700">
+                            🚗 {v.plate}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-slate-500 mt-0.5 truncate">
                         {v.host} · <span className="font-semibold text-slate-700">{v.entry} hrs</span>
                       </p>

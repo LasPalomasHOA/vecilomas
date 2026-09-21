@@ -36,10 +36,10 @@ export function ResidentDashboard({ user, onNav }: ResidentDashboardProps) {
   const stats = [
     {
       label: 'Estado de Cuenta',
-      value: myFee?.status === 'Pagada' ? 'Al Corriente' : 'Adeudo',
-      sub: myFee?.status === 'Pagada' ? 'Cuota liquidada' : `$${myFee?.amount.toLocaleString()} pendiente`,
-      badge: myFee?.status === 'Pagada' ? 'Sin Adeudo' : 'Vencido',
-      badgeStyle: myFee?.status === 'Pagada' ? 'bg-emerald-50 text-emerald-800 border-emerald-200/80' : 'bg-red-50 text-red-800 border-red-200/80',
+      value: myFee ? (myFee.status === 'Pagada' ? 'Al Corriente' : 'Adeudo') : 'Al Corriente',
+      sub: myFee ? (myFee.status === 'Pagada' ? 'Cuota liquidada' : `$${myFee.amount.toLocaleString()} pendiente`) : 'Sin adeudos pendientes',
+      badge: myFee ? (myFee.status === 'Pagada' ? 'Sin Adeudo' : 'Pendiente') : 'Al Corriente',
+      badgeStyle: (myFee?.status === 'Pagada' || !myFee) ? 'bg-emerald-50 text-emerald-800 border-emerald-200/80' : 'bg-red-50 text-red-800 border-red-200/80',
       icon: <Ico n="dollar" c="w-4 h-4 sm:w-5 sm:h-5 text-emerald-700" />,
       iconBoxStyle: 'bg-gradient-to-br from-emerald-500/20 to-emerald-700/10 border-emerald-500/25 text-emerald-800 shadow-[0_2px_8px_rgba(16,185,129,0.15)]',
       accentColor: '#059669',

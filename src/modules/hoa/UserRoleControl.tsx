@@ -60,8 +60,9 @@ const ROLES_OVERVIEW: {
 ]
 
 export function UserRoleControl() {
-  const { userPermissions, addUserPermission } = useData()
+  const { userPermissions, addUserPermission, deleteUserPermission } = useData()
   const [modalOpen, setModalOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
     name: '',
     email: '',
@@ -69,23 +70,29 @@ export function UserRoleControl() {
     unit: '',
   })
 
-  function handleCreate(e: React.FormEvent) {
+  async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
     if (!form.name || !form.email) return
 
+    setSaving(true)
     const roleConfig = ROLES_OVERVIEW.find(r => r.role === form.role)
 
-    addUserPermission({
-      name: form.name,
-      email: form.email,
-      role: form.role,
-      unit: form.role === 'resident' ? form.unit || 'A-101' : undefined,
-      status: 'Activo',
-      permissions: roleConfig?.features.slice(0, 3) || ['Acceso general'],
-    })
-
-    setModalOpen(false)
-    setForm({ name: '', email: '', role: 'resident', unit: '' })
+    try {
+      await addUserPermission({
+        name: form.name,
+        email: form.email,
+        role: form.role,
+        unit: form.role === 'resident' ? form.unit || 'A-101' : undefined,
+        status: 'Activo',
+        permissions: roleConfig?.features.slice(0, 3) || ['Acceso general'],
+      })
+      setModalOpen(false)
+      setForm({ name: '', email: '', role: 'resident', unit: '' })
+    } catch (err) {
+      console.error(err)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -127,7 +134,7 @@ export function UserRoleControl() {
               Usuarios y Credenciales del Sistema
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Niveles de acceso y roles asignados a administradores, condóminos y guardias.
+              Niveles de acceso y roles asignados a administradores, condóminos y guardias sincronizados con PostgreSQL.
             </p>
           </div>
           <Btn onClick={() => setModalOpen(true)} className="shrink-0 whitespace-nowrap font-semibold shadow-xs">
@@ -140,7 +147,7 @@ export function UserRoleControl() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-slate-100 bg-slate-50/60">
-                {['ID', 'Nombre', 'Correo / Usuario', 'Rol Asignado', 'Unidad', 'Estatus', 'Permisos'].map(h => (
+                {['ID', 'Nombre', 'Correo / Usuario', 'Rol Asignado', 'Unidad', 'Estatus', 'Permisos', 'Acción'].map(h => (
                   <th key={h} className="text-left px-5 py-3.5 text-xs font-semibold uppercase tracking-wider text-slate-500 whitespace-nowrap">
                     {h}
                   </th>
@@ -161,7 +168,16 @@ export function UserRoleControl() {
                     <Badge text={u.status} />
                   </td>
                   <td className="px-5 py-3.5 text-xs text-slate-500 max-w-xs truncate whitespace-nowrap">
-                    {u.permissions.join(', ')}
+                    {Array.isArray(u.permissions) ? u.permissions.join(', ') : ''}
+                  </td>
+                  <td className="px-5 py-3.5 whitespace-nowrap">
+                    <button
+                      onClick={() => deleteUserPermission(u.id)}
+                      className="p-1.5 rounded-lg text-slate-300 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                      title="Eliminar rol"
+                    >
+                      <Ico n="trash" c="w-4 h-4" />
+                    </button>
                   </td>
                 </tr>
               ))}

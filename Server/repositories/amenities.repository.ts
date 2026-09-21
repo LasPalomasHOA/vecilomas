@@ -20,21 +20,183 @@ export class AmenitiesRepository {
   /**
    * Catálogo de amenidades activas
    */
-  static async getAmenities(condoId?: string): Promise<AmenityEntity[]> {
+  static async getAmenities(condoId?: string | number): Promise<any[]> {
     const sql = `
-      SELECT * FROM vecilomas.amenities
+      SELECT 
+        id,
+        condominium_id AS "condominiumId",
+        name,
+        description,
+        capacity,
+        CASE WHEN cost_amount > 0 THEN concat('$', cost_amount, ' MXN') ELSE 'Sin costo' END AS rate,
+        cost_amount AS "costAmount",
+        deposit_amount AS "depositAmount",
+        CASE WHEN deposit_amount > 0 THEN concat('$', deposit_amount, ' MXN en garantía') ELSE 'No aplica' END AS deposit,
+        concat(to_char(opening_time, 'HH24:MI'), ' – ', to_char(closing_time, 'HH24:MI'), ' hrs') AS hours,
+        max_hours_per_booking AS "maxHoursPerBooking",
+        is_active AS available,
+        COALESCE(image_url, 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=800&q=80') AS img,
+        COALESCE(rules, '[]'::jsonb) AS rules
+      FROM vecilomas.amenities
       WHERE is_active = TRUE
-        AND ($1::uuid IS NULL OR condominium_id = $1::uuid)
+        AND ($1::integer IS NULL OR condominium_id = $1::integer)
       ORDER BY id ASC;
     `
-    const { rows } = await query<AmenityEntity>(sql, [condoId || null])
+    const { rows } = await query(sql, [condoId ? Number(condoId) : null])
     return rows
+  }
+
+  /**
+   * Crear nueva amenidad
+   */
+  static async createAmenity(data: {
+    condominiumId?: string | number
+    name: string
+    description?: string
+    capacity: number
+    rate?: string
+    costAmount?: number
+    deposit?: string
+    depositAmount?: number
+    hours?: string
+    openingTime?: string
+    closingTime?: string
+    maxHoursPerBooking?: number
+    img?: string
+    imageUrl?: string
+    rules?: string[]
+  }) {
+    let openTime = data.openingTime || '08:00:00'
+    let closeTime = data.closingTime || '22:00:00'
+    if (data.hours && data.hours.includes('–')) {
+      const parts = data.hours.replace('hrs', '').trim().split('–')
+      if (parts[0]) openTime = parts[0].trim() + ':00'
+      if (parts[1]) closeTime = parts[1].trim() + ':00'
+    }
+
+    const sql = `
+      INSERT INTO vecilomas.amenities (
+        condominium_id, name, description, capacity, cost_amount, deposit_amount,
+        opening_time, closing_time, max_hours_per_booking, image_url, rules, is_active
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7::time, $8::time, $9, $10, $11::jsonb, TRUE)
+      RETURNING 
+        id,
+        condominium_id AS "condominiumId",
+        name,
+        description,
+        capacity,
+        CASE WHEN cost_amount > 0 THEN concat('$', cost_amount, ' MXN') ELSE 'Sin costo' END AS rate,
+        cost_amount AS "costAmount",
+        deposit_amount AS "depositAmount",
+        CASE WHEN deposit_amount > 0 THEN concat('$', deposit_amount, ' MXN en garantía') ELSE 'No aplica' END AS deposit,
+        concat(to_char(opening_time, 'HH24:MI'), ' – ', to_char(closing_time, 'HH24:MI'), ' hrs') AS hours,
+        max_hours_per_booking AS "maxHoursPerBooking",
+        is_active AS available,
+        COALESCE(image_url, 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=800&q=80') AS img,
+        COALESCE(rules, '[]'::jsonb) AS rules;
+    `
+    const { rows } = await query(sql, [
+      Number(data.condominiumId) || 1,
+      data.name,
+      data.description || null,
+      Number(data.capacity) || 20,
+      Number(data.costAmount) || 0,
+      Number(data.depositAmount) || 0,
+      openTime,
+      closeTime,
+      Number(data.maxHoursPerBooking) || 4,
+      data.img || data.imageUrl || null,
+      JSON.stringify(data.rules || []),
+    ])
+    return rows[0]
+  }
+
+  /**
+   * Actualizar amenidad
+   */
+  static async updateAmenity(id: number, data: {
+    name?: string
+    description?: string
+    capacity?: number
+    costAmount?: number
+    depositAmount?: number
+    hours?: string
+    openingTime?: string
+    closingTime?: string
+    maxHoursPerBooking?: number
+    img?: string
+    rules?: string[]
+    available?: boolean
+  }) {
+    let openTime = data.openingTime
+    let closeTime = data.closingTime
+    if (data.hours && data.hours.includes('–')) {
+      const parts = data.hours.replace('hrs', '').trim().split('–')
+      if (parts[0]) openTime = parts[0].trim() + ':00'
+      if (parts[1]) closeTime = parts[1].trim() + ':00'
+    }
+
+    const sql = `
+      UPDATE vecilomas.amenities
+      SET 
+        name = COALESCE($2, name),
+        description = COALESCE($3, description),
+        capacity = COALESCE($4, capacity),
+        cost_amount = COALESCE($5, cost_amount),
+        deposit_amount = COALESCE($6, deposit_amount),
+        opening_time = COALESCE($7::time, opening_time),
+        closing_time = COALESCE($8::time, closing_time),
+        max_hours_per_booking = COALESCE($9, max_hours_per_booking),
+        image_url = COALESCE($10, image_url),
+        rules = COALESCE($11::jsonb, rules),
+        is_active = COALESCE($12, is_active)
+      WHERE id = $1
+      RETURNING 
+        id,
+        condominium_id AS "condominiumId",
+        name,
+        description,
+        capacity,
+        CASE WHEN cost_amount > 0 THEN concat('$', cost_amount, ' MXN') ELSE 'Sin costo' END AS rate,
+        cost_amount AS "costAmount",
+        deposit_amount AS "depositAmount",
+        CASE WHEN deposit_amount > 0 THEN concat('$', deposit_amount, ' MXN en garantía') ELSE 'No aplica' END AS deposit,
+        concat(to_char(opening_time, 'HH24:MI'), ' – ', to_char(closing_time, 'HH24:MI'), ' hrs') AS hours,
+        max_hours_per_booking AS "maxHoursPerBooking",
+        is_active AS available,
+        COALESCE(image_url, 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&w=800&q=80') AS img,
+        COALESCE(rules, '[]'::jsonb) AS rules;
+    `
+    const { rows } = await query(sql, [
+      id,
+      data.name,
+      data.description,
+      data.capacity ? Number(data.capacity) : null,
+      data.costAmount !== undefined ? Number(data.costAmount) : null,
+      data.depositAmount !== undefined ? Number(data.depositAmount) : null,
+      openTime || null,
+      closeTime || null,
+      data.maxHoursPerBooking ? Number(data.maxHoursPerBooking) : null,
+      data.img || null,
+      data.rules ? JSON.stringify(data.rules) : null,
+      data.available !== undefined ? data.available : null,
+    ])
+    return rows[0]
+  }
+
+  /**
+   * Eliminar amenidad
+   */
+  static async deleteAmenity(id: number) {
+    const sql = `DELETE FROM vecilomas.amenities WHERE id = $1 RETURNING id;`
+    const { rows } = await query(sql, [id])
+    return rows[0]
   }
 
   /**
    * Lista de reservaciones con datos de la amenidad, residente y unidad en 1 solo JOIN
    */
-  static async getBookings(condoId?: string, unitId?: string): Promise<BookingListItem[]> {
+  static async getBookings(condoId?: string | number, unitId?: string | number): Promise<BookingListItem[]> {
     const sql = `
       SELECT 
         b.id,
@@ -61,11 +223,11 @@ export class AmenitiesRepository {
       JOIN vecilomas.amenities a ON b.amenity_id = a.id
       JOIN vecilomas.users u ON b.user_id = u.id
       JOIN vecilomas.units un ON b.unit_id = un.id
-      WHERE ($1::uuid IS NULL OR a.condominium_id = $1::uuid)
-        AND ($2::uuid IS NULL OR b.unit_id = $2::uuid)
+      WHERE ($1::integer IS NULL OR a.condominium_id = $1::integer)
+        AND ($2::integer IS NULL OR b.unit_id = $2::integer)
       ORDER BY b.start_datetime DESC;
     `
-    const { rows } = await query(sql, [condoId || null, unitId || null])
+    const { rows } = await query(sql, [condoId ? Number(condoId) : null, unitId ? Number(unitId) : null])
     return rows
   }
 
@@ -102,8 +264,8 @@ export class AmenitiesRepository {
    */
   static async createBooking(data: {
     amenityId: number
-    userId: string
-    unitId: string
+    userId: string | number
+    unitId: string | number
     startDatetime: string
     endDatetime: string
     guestsCount: number
@@ -140,13 +302,13 @@ export class AmenitiesRepository {
       const insertSql = `
         INSERT INTO vecilomas.bookings (
           amenity_id, user_id, unit_id, start_datetime, end_datetime, guests_count, total_cost, status, notes, created_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::vecilomas.booking_status, $9, NOW())
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
         RETURNING *;
       `
       const res = await client.query(insertSql, [
         data.amenityId,
-        data.userId,
-        data.unitId,
+        Number(data.userId) || 1,
+        Number(data.unitId) || 1,
         data.startDatetime,
         data.endDatetime,
         data.guestsCount,
@@ -164,16 +326,16 @@ export class AmenitiesRepository {
   static async updateBookingStatus(
     bookingId: number,
     status: BookingStatus,
-    approvedByUserId?: string
+    approvedByUserId?: string | number
   ) {
     const sql = `
       UPDATE vecilomas.bookings
-      SET status = $2::vecilomas.booking_status,
+      SET status = $2,
           approved_by_user_id = $3
       WHERE id = $1
       RETURNING *;
     `
-    const { rows } = await query(sql, [bookingId, status.toLowerCase(), approvedByUserId || null])
+    const { rows } = await query(sql, [bookingId, status.toLowerCase(), approvedByUserId ? Number(approvedByUserId) : null])
     return rows[0]
   }
 }

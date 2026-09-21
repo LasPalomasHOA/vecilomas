@@ -145,7 +145,7 @@ export function AdminDashboard({ user, onNav }: AdminDashboardProps) {
             <div className="flex items-center gap-2 mt-3 sm:mt-4 flex-wrap">
               <div className="inline-flex items-center gap-1.5 px-3 py-1 sm:py-1.5 rounded-xl bg-white/10 border border-white/20 backdrop-blur-md text-white text-[11px] sm:text-xs font-semibold whitespace-nowrap shadow-xs">
                 <Ico n="shield" c="w-3.5 h-3.5 text-teal-300" />
-                <span>Condominio: <strong className="font-extrabold text-white">Torre Vista Mar (48 Deptos)</strong></span>
+                <span>Condominio: <strong className="font-extrabold text-white">Condominio Residencial Las Palomas</strong></span>
               </div>
               <div className="inline-flex items-center gap-1.5 px-3 py-1 sm:py-1.5 rounded-xl bg-emerald-500/20 border border-emerald-400/30 backdrop-blur-md text-emerald-200 text-[11px] sm:text-xs font-bold whitespace-nowrap shadow-xs">
                 <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-300 animate-pulse" />

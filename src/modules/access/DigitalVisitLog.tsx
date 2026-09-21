@@ -15,8 +15,8 @@ export function DigitalVisitLog() {
   // Manual Register Form
   const [form, setForm] = useState({
     visitor: '',
-    unit: 'A-101',
-    host: 'Carlos Mendoza',
+    unit: residents[0]?.unit || '',
+    host: residents[0]?.name || '',
     type: 'Visita' as VisitType,
     plate: '',
   })
@@ -34,7 +34,7 @@ export function DigitalVisitLog() {
     })
 
     setModalOpen(false)
-    setForm({ visitor: '', unit: 'A-101', host: 'Carlos Mendoza', type: 'Visita', plate: '' })
+    setForm({ visitor: '', unit: residents[0]?.unit || '', host: residents[0]?.name || '', type: 'Visita', plate: '' })
   }
 
   const filtered = visits.filter(v => {

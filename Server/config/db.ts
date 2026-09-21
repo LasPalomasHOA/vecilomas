@@ -8,44 +8,40 @@ const { Pool } = pg
 const isProduction = process.env.NODE_ENV === 'production'
 const defaultSchema = process.env.DB_SCHEMA || 'vecilomas'
 
-// Vercel Postgres y conexiones Cloud (Supabase, Neon, AWS)
-const connectionString =
+// Variables exclusivas de Vercel / Cloud
+const rawConnectionString =
   process.env.POSTGRES_URL ||
   process.env.POSTGRES_PRISMA_URL ||
   process.env.DATABASE_URL
 
-const isCloudOrSslRequired =
-  Boolean(connectionString) ||
-  process.env.DB_SSL === 'true' ||
-  isProduction
-
-export const pool = new Pool(
-  connectionString
-    ? {
-        connectionString,
-        ssl: isCloudOrSslRequired ? { rejectUnauthorized: false } : undefined,
-      }
-    : {
-        host: process.env.POSTGRES_HOST || process.env.DB_HOST || 'localhost',
-        port: Number(process.env.POSTGRES_PORT || process.env.DB_PORT) || 5432,
-        user: process.env.POSTGRES_USER || process.env.DB_USER || 'postgres',
-        password: process.env.POSTGRES_PASSWORD || process.env.DB_PASSWORD || 'postgres',
-        database: process.env.POSTGRES_DATABASE || process.env.DB_NAME || 'vecilomas_db',
-        ssl: isCloudOrSslRequired ? { rejectUnauthorized: false } : undefined,
-        max: 20,
-        idleTimeoutMillis: 30000,
-        connectionTimeoutMillis: 5000,
-      }
-)
-
-// Asegurar que cada cliente que se conecte use el esquema 'vecilomas'
-pool.on('connect', async (client) => {
-  try {
-    await client.query(`SET search_path TO ${defaultSchema}, public;`)
-  } catch (err) {
-    console.error(`[DB] Error al configurar search_path para el esquema ${defaultSchema}:`, err)
+function getPoolConfig(): pg.PoolConfig {
+  const commonOptions = {
+    ssl: { rejectUnauthorized: false },
+    max: isProduction ? 5 : 20,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 8000,
+    options: `-c search_path=${defaultSchema},public -c timezone=America/Hermosillo`,
   }
-})
+
+  if (rawConnectionString) {
+    const cleanUrl = rawConnectionString.replace(/^["']|["']$/g, '').split('?')[0]
+    return {
+      connectionString: cleanUrl,
+      ...commonOptions,
+    }
+  }
+
+  return {
+    host: process.env.POSTGRES_HOST,
+    port: process.env.POSTGRES_PORT ? Number(process.env.POSTGRES_PORT) : 5432,
+    user: process.env.POSTGRES_USER,
+    password: process.env.POSTGRES_PASSWORD,
+    database: process.env.POSTGRES_DATABASE || 'postgres',
+    ...commonOptions,
+  }
+}
+
+export const pool = new Pool(getPoolConfig())
 
 pool.on('error', (err) => {
   console.error('[DB Pool Error Inesperado]:', err)
@@ -91,12 +87,39 @@ export async function withTransaction<T>(callback: (client: pg.PoolClient) => Pr
 /**
  * Verificación de salud (Health check) de la base de datos
  */
-export async function checkDbConnection(): Promise<{ ok: boolean; latencyMs: number; error?: string }> {
+export async function checkDbConnection(): Promise<{
+  ok: boolean
+  latencyMs: number
+  database?: string
+  schema?: string
+  error?: string
+}> {
+  if (!rawConnectionString && !process.env.POSTGRES_HOST) {
+    return {
+      ok: false,
+      latencyMs: 0,
+      error: 'Variables de entorno de Vercel no configuradas (esperando POSTGRES_URL o DATABASE_URL).',
+    }
+  }
+
   const start = Date.now()
   try {
-    await pool.query('SELECT 1')
-    return { ok: true, latencyMs: Date.now() - start }
+    const res = await pool.query(`
+      SELECT 
+        current_database() AS db,
+        current_schema() AS schema;
+    `)
+    return {
+      ok: true,
+      latencyMs: Date.now() - start,
+      database: res.rows[0]?.db,
+      schema: res.rows[0]?.schema,
+    }
   } catch (err: any) {
-    return { ok: false, latencyMs: Date.now() - start, error: err?.message || 'Error de conexión a la BD' }
+    return {
+      ok: false,
+      latencyMs: Date.now() - start,
+      error: err?.message || 'Error de conexión a la BD',
+    }
   }
 }

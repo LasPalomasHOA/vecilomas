@@ -2,6 +2,16 @@ import type { Request, Response } from 'express'
 import { AccessRepository } from '../repositories/access.repository.ts'
 
 export class AccessController {
+  static async getPasses(req: Request, res: Response) {
+    try {
+      const condoId = req.query.condoId as string
+      const passes = await AccessRepository.getAccessPasses(condoId)
+      res.json({ success: true, data: passes })
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message })
+    }
+  }
+
   static async createPass(req: Request, res: Response) {
     try {
       const pass = await AccessRepository.createAccessPass(req.body)

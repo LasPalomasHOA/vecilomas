@@ -46,9 +46,23 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
   })
 })
 
-const server = app.listen(PORT, () => {
+const server = app.listen(PORT, async () => {
+  console.log('====================================================')
   console.log(`🚀 VeciLomas API Server corriendo en http://localhost:${PORT}`)
   console.log(`📡 Endpoints API disponibles en http://localhost:${PORT}/api`)
+  console.log('----------------------------------------------------')
+  
+  // Probar conexión a la base de datos de inmediato
+  const dbHealth = await checkDbConnection()
+  if (dbHealth.ok) {
+    console.log(`✅ [Base de Datos] ¡Conexión a PostgreSQL exitosa!`)
+    console.log(`🗄️  [Base de datos]: ${dbHealth.database} | [Esquema]: ${dbHealth.schema} | [Latencia]: ${dbHealth.latencyMs}ms`)
+  } else {
+    console.log(`⚠️  [Base de Datos] No se pudo conectar a PostgreSQL:`)
+    console.log(`   ${dbHealth.error}`)
+    console.log(`💡 [Nota]: El servidor sigue activo. Configura POSTGRES_URL / DATABASE_URL cuando estés listo.`)
+  }
+  console.log('====================================================\n')
 })
 
 // Graceful Shutdown

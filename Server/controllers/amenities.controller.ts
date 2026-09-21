@@ -12,6 +12,15 @@ export class AmenitiesController {
     }
   }
 
+  static async createAmenity(req: Request, res: Response) {
+    try {
+      const amenity = await AmenitiesRepository.createAmenity(req.body)
+      res.status(201).json({ success: true, data: amenity })
+    } catch (error: any) {
+      res.status(400).json({ success: false, error: error.message })
+    }
+  }
+
   static async getBookings(req: Request, res: Response) {
     try {
       const condoId = req.query.condoId as string
@@ -43,6 +52,26 @@ export class AmenitiesController {
       res.status(201).json({ success: true, data: booking })
     } catch (error: any) {
       res.status(400).json({ success: false, error: error.message })
+    }
+  }
+
+  static async updateAmenity(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id)
+      const updated = await AmenitiesRepository.updateAmenity(id, req.body)
+      res.json({ success: true, data: updated })
+    } catch (error: any) {
+      res.status(400).json({ success: false, error: error.message })
+    }
+  }
+
+  static async deleteAmenity(req: Request, res: Response) {
+    try {
+      const id = Number(req.params.id)
+      await AmenitiesRepository.deleteAmenity(id)
+      res.json({ success: true, message: 'Amenidad eliminada con éxito' })
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message })
     }
   }
 

@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { VisitType, AccessPass } from '@/types/access'
 import { useData } from '@/context/DataContext'
 import GCard from '@/components/common/Card'
 import Btn from '@/components/common/Button'
 import QRVisual from '@/components/common/QRVisual'
 import Ico from '@/components/common/Icons'
+import { shareQRPassToWhatsApp, downloadQRPassImage, generateQRPassDataURL } from '@/utils/qrPassImageGenerator'
 
 interface QRPassGeneratorProps {
   defaultUnit?: string
@@ -21,15 +22,37 @@ export function QRPassGenerator({
 
   const [form, setForm] = useState({
     visitor: '',
-    unit: defaultUnit || (residents[0]?.unit || 'A-101'),
-    host: defaultHost || (residents[0]?.name || 'Carlos Mendoza Ruiz'),
-    date: '2026-09-02',
+    unit: defaultUnit || (residents[0]?.unit || ''),
+    host: defaultHost || (residents[0]?.name || ''),
+    date: new Date().toISOString().split('T')[0],
     time: '18:00',
     type: 'Visita' as VisitType,
   })
 
   const [createdPass, setCreatedPass] = useState<AccessPass | null>(null)
+  const [passImageUrl, setPassImageUrl] = useState<string | null>(null)
   const [copyFeedback, setCopyFeedback] = useState<string | null>(null)
+  const [isSharing, setIsSharing] = useState(false)
+  const [isDownloading, setIsDownloading] = useState(false)
+
+  // Generar la imagen del pase cada vez que se emite uno nuevo
+  useEffect(() => {
+    if (!createdPass) {
+      setPassImageUrl(null)
+      return
+    }
+
+    let active = true
+    generateQRPassDataURL(createdPass)
+      .then(url => {
+        if (active) setPassImageUrl(url)
+      })
+      .catch(err => console.error('Error previsualizando imagen de pase:', err))
+
+    return () => {
+      active = false
+    }
+  }, [createdPass])
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -47,17 +70,45 @@ export function QRPassGenerator({
     setCreatedPass(newPass)
   }
 
-  function handleShareWhatsApp() {
+  async function handleShareWhatsApp() {
     if (!createdPass) return
-    const text = `¡Hola ${createdPass.visitor}! Te comparto tu Pase de Acceso Digital para Condominios Las Palomas:\n\n🔑 Código: ${createdPass.code}\n🏠 Unidad: ${createdPass.unit} (${createdPass.host})\n📅 Vigencia: ${createdPass.validDate} a las ${createdPass.validTime} hrs\n\nPor favor muestra este código al guardia de caseta al llegar.`
-    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`
-    window.open(url, '_blank')
+    setIsSharing(true)
+    try {
+      const res = await shareQRPassToWhatsApp(createdPass)
+      if (res.message) {
+        setCopyFeedback(res.message)
+        setTimeout(() => setCopyFeedback(null), 5000)
+      } else if (res.shared) {
+        setCopyFeedback('¡Pase con imagen enviado a WhatsApp!')
+        setTimeout(() => setCopyFeedback(null), 4000)
+      }
+    } catch (err) {
+      console.error('Error al compartir pase por WhatsApp:', err)
+      setCopyFeedback('No se pudo compartir la imagen directamente.')
+      setTimeout(() => setCopyFeedback(null), 4000)
+    } finally {
+      setIsSharing(false)
+    }
+  }
+
+  async function handleDownloadImage() {
+    if (!createdPass) return
+    setIsDownloading(true)
+    try {
+      await downloadQRPassImage(createdPass)
+      setCopyFeedback('¡Imagen PNG del Pase descargada con éxito!')
+      setTimeout(() => setCopyFeedback(null), 4000)
+    } catch (err) {
+      console.error('Error descargando imagen de pase:', err)
+    } finally {
+      setIsDownloading(false)
+    }
   }
 
   function handleCopyCode() {
     if (!createdPass) return
     navigator.clipboard.writeText(createdPass.code)
-    setCopyFeedback('¡Código copiado al portapapeles!')
+    setCopyFeedback('¡Código alfanumérico copiado al portapapeles!')
     setTimeout(() => setCopyFeedback(null), 3000)
   }
 
@@ -74,7 +125,7 @@ export function QRPassGenerator({
               Crear Pase de Acceso Digital
             </h3>
             <p className="text-xs text-slate-500 mt-0.5">
-              Invitación con código QR para visitantes, familiares y repartidores.
+              Genera una tarjeta con código QR descargable y compartible como imagen en WhatsApp.
             </p>
           </div>
         </div>
@@ -253,14 +304,48 @@ export function QRPassGenerator({
             </div>
 
             {/* Bottom Sharing Strip */}
-            <div className="p-4 bg-white flex flex-col sm:flex-row gap-2.5">
-              <Btn variant="whatsapp" onClick={handleShareWhatsApp} className="w-full sm:flex-1 font-bold whitespace-nowrap justify-center py-2.5 shadow-[0_4px_12px_rgba(16,185,129,0.3)]">
-                <Ico n="whatsapp" c="w-4 h-4 shrink-0" />
-                <span>Compartir por WhatsApp</span>
-              </Btn>
-              <Btn variant="outline" onClick={handleCopyCode} className="w-full sm:flex-1 font-bold whitespace-nowrap justify-center py-2.5 border-teal-950/[0.15] hover:bg-slate-50">
-                Copiar Código
-              </Btn>
+            <div className="p-4 bg-white space-y-2.5">
+              <div className="flex flex-col sm:flex-row gap-2.5">
+                <Btn
+                  variant="whatsapp"
+                  onClick={handleShareWhatsApp}
+                  disabled={isSharing}
+                  className="w-full sm:flex-1 font-bold whitespace-nowrap justify-center py-2.5 shadow-[0_4px_12px_rgba(16,185,129,0.3)] flex items-center gap-2"
+                >
+                  {isSharing ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Generando Imagen...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Ico n="whatsapp" c="w-4 h-4 shrink-0" />
+                      <span>Compartir Imagen por WhatsApp</span>
+                    </>
+                  )}
+                </Btn>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={handleDownloadImage}
+                  disabled={isDownloading}
+                  className="w-full py-2 px-3 text-xs font-bold rounded-xl border border-teal-950/[0.15] text-slate-700 hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                >
+                  <Ico n="dl" c="w-3.5 h-3.5 text-teal-700" />
+                  <span>{isDownloading ? 'Descargando...' : 'Descargar Imagen (PNG)'}</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleCopyCode}
+                  className="w-full py-2 px-3 text-xs font-bold rounded-xl border border-teal-950/[0.15] text-slate-700 hover:bg-slate-50 transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
+                >
+                  <Ico n="tag" c="w-3.5 h-3.5 text-slate-500" />
+                  <span>Copiar Código</span>
+                </button>
+              </div>
             </div>
           </div>
         ) : (
@@ -270,7 +355,7 @@ export function QRPassGenerator({
             </div>
             <p className="font-display font-bold text-slate-900 text-lg">Pase Digital sin emitir</p>
             <p className="text-xs text-slate-500 mt-1.5 max-w-xs leading-relaxed">
-              Completa el formulario con los datos de tu invitado para generar la invitación digital con código QR instantáneo.
+              Completa el formulario con los datos de tu invitado para generar la invitación digital con código QR instantáneo y compartirla como imagen.
             </p>
           </GCard>
         )}

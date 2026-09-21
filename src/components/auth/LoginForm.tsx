@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import type { AuthUser, UserRole } from '@/types'
-import { MOCK_USERS } from '@/data/mockData'
 import Ico from '@/components/common/Icons'
 
 interface LoginFormProps {
@@ -18,9 +17,6 @@ const ROLE_DETAILS: Record<
     badge: string
     color: string
     gradient: string
-    defaultEmail: string
-    defaultPass: string
-    quickUsers: { name: string; email: string; unit?: string; role: UserRole }[]
   }
 > = {
   resident: {
@@ -29,12 +25,6 @@ const ROLE_DETAILS: Record<
     badge: 'Residente / Inquilino',
     color: '#008080',
     gradient: 'from-teal-600 to-emerald-700',
-    defaultEmail: 'carlos.mendoza@email.com',
-    defaultPass: 'vecino123',
-    quickUsers: [
-      { name: 'Carlos Mendoza Ruiz', email: 'carlos.mendoza@email.com', unit: 'A-101', role: 'resident' },
-      { name: 'Patricia Vega Soto', email: 'p.vega@email.com', unit: 'A-102', role: 'resident' },
-    ],
   },
   admin: {
     title: 'Administración HOA',
@@ -42,30 +32,20 @@ const ROLE_DETAILS: Record<
     badge: 'Mesa Directiva & Staff',
     color: '#6366f1',
     gradient: 'from-indigo-600 to-violet-700',
-    defaultEmail: 'admin@laspalomas.mx',
-    defaultPass: 'admin123',
-    quickUsers: [
-      { name: 'Administrador General', email: 'admin@laspalomas.mx', role: 'admin' },
-    ],
   },
   security: {
     title: 'Caseta de Seguridad',
-    subtitle: 'Acceso a tablet de validación de QR y bitácora',
+    subtitle: 'Acceso a validación de QR y bitácora de accesos',
     badge: 'Control de Caseta',
     color: '#0f766e',
     gradient: 'from-emerald-700 to-teal-900',
-    defaultEmail: 'guardia01',
-    defaultPass: 'guardia123',
-    quickUsers: [
-      { name: 'Jorge Hernández (Guardia 1)', email: 'guardia01', role: 'security' },
-    ],
   },
 }
 
 export function LoginForm({ role, onBack, onLogin, glass = false }: LoginFormProps) {
   const config = ROLE_DETAILS[role]
-  const [email, setEmail] = useState(config.defaultEmail)
-  const [password, setPassword] = useState(config.defaultPass)
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -76,32 +56,16 @@ export function LoginForm({ role, onBack, onLogin, glass = false }: LoginFormPro
     setLoading(true)
 
     setTimeout(() => {
-      // Find matching mock user or fallback
-      const found = Object.values(MOCK_USERS).find(
-        m => m.user.email.toLowerCase() === email.toLowerCase() || (m.user.unit && m.user.unit.toLowerCase() === email.toLowerCase())
-      )
-
-      if (found) {
-        onLogin(found.user)
-      } else {
-        // Create custom session with chosen role
-        const fallbackUser: AuthUser = {
-          role,
-          name: email.split('@')[0] || 'Usuario',
-          email,
-          initials: (email[0] || 'U').toUpperCase(),
-          unit: role === 'resident' ? 'A-101' : undefined,
-        }
-        onLogin(fallbackUser)
+      const fallbackUser: AuthUser = {
+        role,
+        name: email.split('@')[0] || (role === 'admin' ? 'Administrador' : role === 'security' ? 'Guardia' : 'Residente'),
+        email,
+        initials: (email[0] || 'U').toUpperCase(),
+        unit: role === 'resident' ? (email.includes('-') ? email : '101') : undefined,
       }
+      onLogin(fallbackUser)
       setLoading(false)
-    }, 450)
-  }
-
-  function handleSelectQuickUser(u: { name: string; email: string; unit?: string; role: UserRole }) {
-    setEmail(u.email)
-    setPassword(config.defaultPass)
-    setError(null)
+    }, 200)
   }
 
   return (
@@ -149,45 +113,6 @@ export function LoginForm({ role, onBack, onLogin, glass = false }: LoginFormPro
         </p>
       </div>
 
-      {/* Quick Demo selector */}
-      <div
-        className={`p-3 rounded-xl space-y-2 border ${
-          glass
-            ? 'bg-white/10 border-white/15'
-            : 'bg-slate-50 border-slate-200/80'
-        }`}
-      >
-        <p
-          className={`text-[11px] font-bold uppercase tracking-wider flex items-center gap-1.5 ${
-            glass ? 'text-teal-200' : 'text-slate-600'
-          }`}
-        >
-          <Ico n="tag" c={`w-3 h-3 ${glass ? 'text-teal-300' : 'text-slate-500'}`} />
-          <span>Cuentas de demostración disponibles:</span>
-        </p>
-        <div className="flex flex-wrap gap-1.5">
-          {config.quickUsers.map(qu => {
-            const isSelected = email === qu.email
-            return (
-              <button
-                key={qu.email}
-                type="button"
-                onClick={() => handleSelectQuickUser(qu)}
-                className={`text-xs py-1 px-2.5 rounded-lg font-medium transition-all cursor-pointer border ${
-                  isSelected
-                    ? 'bg-white text-slate-900 border-teal-600 shadow-sm font-semibold ring-1 ring-teal-600/30'
-                    : glass
-                    ? 'bg-white/15 text-white/90 border-white/20 hover:bg-white/25 hover:text-white'
-                    : 'bg-white/80 text-slate-600 border-slate-200 hover:bg-white hover:text-slate-900'
-                }`}
-              >
-                {qu.name} {qu.unit ? `(${qu.unit})` : ''}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
@@ -202,7 +127,7 @@ export function LoginForm({ role, onBack, onLogin, glass = false }: LoginFormPro
               glass ? 'text-white/90' : 'text-slate-700'
             }`}
           >
-            {role === 'security' ? 'ID o Usuario de Caseta' : 'Correo Electrónico / Unidad'}
+            {role === 'security' ? 'Usuario o Identificador de Caseta' : 'Correo Electrónico / Unidad'}
           </label>
           <div className="relative">
             <input
@@ -210,7 +135,7 @@ export function LoginForm({ role, onBack, onLogin, glass = false }: LoginFormPro
               required
               value={email}
               onChange={e => setEmail(e.target.value)}
-              placeholder={role === 'security' ? 'guardia01' : 'tu-correo@ejemplo.com'}
+              placeholder={role === 'security' ? 'caseta_norte' : 'tu-correo@ejemplo.com'}
               className={`w-full px-3.5 py-2.5 border rounded-xl text-sm transition-all font-medium focus:outline-none ${
                 glass
                   ? 'bg-white/15 border-white/25 text-white placeholder-white/50 focus:border-white focus:bg-white/25 focus:ring-2 focus:ring-white/20'
@@ -234,6 +159,7 @@ export function LoginForm({ role, onBack, onLogin, glass = false }: LoginFormPro
               required
               value={password}
               onChange={e => setPassword(e.target.value)}
+              placeholder="••••••••"
               className={`w-full px-3.5 py-2.5 border rounded-xl text-sm transition-all font-medium pr-10 focus:outline-none ${
                 glass
                   ? 'bg-white/15 border-white/25 text-white placeholder-white/50 focus:border-white focus:bg-white/25 focus:ring-2 focus:ring-white/20'
@@ -263,7 +189,7 @@ export function LoginForm({ role, onBack, onLogin, glass = false }: LoginFormPro
           }}
         >
           {loading ? (
-            <span>Ingresando al portal...</span>
+            <span>Ingresando...</span>
           ) : (
             <>
               <span>Iniciar Sesión como {config.badge}</span>

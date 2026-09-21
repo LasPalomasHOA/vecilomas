@@ -30,7 +30,7 @@ export class FinanceRepository {
   /**
    * Obtiene los estados de cuenta con los datos de residente y último método de pago
    */
-  static async getFeeStatements(condoId?: string, unitId?: string): Promise<FeeStatementListItem[]> {
+  static async getFeeStatements(condoId?: string | number, unitId?: string | number): Promise<FeeStatementListItem[]> {
     const sql = `
       SELECT 
         fs.id,
@@ -65,11 +65,11 @@ export class FinanceRepository {
         ORDER BY paid_at DESC 
         LIMIT 1
       ) p ON TRUE
-      WHERE ($1::uuid IS NULL OR un.condominium_id = $1::uuid)
-        AND ($2::uuid IS NULL OR fs.unit_id = $2::uuid)
+      WHERE ($1::integer IS NULL OR un.condominium_id = $1::integer)
+        AND ($2::integer IS NULL OR fs.unit_id = $2::integer)
       ORDER BY fs.due_date DESC;
     `
-    const { rows } = await query(sql, [condoId || null, unitId || null])
+    const { rows } = await query(sql, [condoId ? Number(condoId) : null, unitId ? Number(unitId) : null])
     return rows
   }
 
@@ -80,30 +80,30 @@ export class FinanceRepository {
    * 3. Verifica si la unidad ya no tiene adeudos vencidos y la pone 'al_corriente'
    */
   static async registerPayment(data: {
-    feeStatementId: string
-    userId: string
+    feeStatementId: string | number
+    userId: string | number
     amountPaid: number
     paymentMethod: PaymentMethod
     referenceNumber?: string
     voucherUrl?: string
-    verifiedByUserId?: string
+    verifiedByUserId?: string | number
   }) {
     return await withTransaction(async (client) => {
       // 1. Insertar pago
       const insertPaymentSql = `
         INSERT INTO vecilomas.payments (
           fee_statement_id, user_id, amount_paid, payment_method, reference_number, voucher_url, verified_by_user_id, verified_at, status, paid_at
-        ) VALUES ($1, $2, $3, $4::vecilomas.payment_method, $5, $6, $7, NOW(), 'aprobado', NOW())
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), 'aprobado', NOW())
         RETURNING *;
       `
       const paymentRes = await client.query(insertPaymentSql, [
-        data.feeStatementId,
-        data.userId,
+        Number(data.feeStatementId),
+        Number(data.userId),
         data.amountPaid,
         data.paymentMethod,
         data.referenceNumber || null,
         data.voucherUrl || null,
-        data.verifiedByUserId || null,
+        data.verifiedByUserId ? Number(data.verifiedByUserId) : null,
       ])
 
       // 2. Actualizar estado de cuenta a pagada
@@ -113,7 +113,7 @@ export class FinanceRepository {
         WHERE id = $1
         RETURNING unit_id;
       `
-      const feeRes = await client.query(updateFeeSql, [data.feeStatementId])
+      const feeRes = await client.query(updateFeeSql, [Number(data.feeStatementId)])
       const unitId = feeRes.rows[0]?.unit_id
 
       // 3. Revisar si quedan cuotas vencidas en la unidad
@@ -136,7 +136,7 @@ export class FinanceRepository {
   /**
    * Obtiene los tickets de mantenimiento con información agregada
    */
-  static async getMaintenanceTickets(condoId?: string, unitId?: string): Promise<MaintenanceTicketListItem[]> {
+  static async getMaintenanceTickets(condoId?: string | number, unitId?: string | number): Promise<MaintenanceTicketListItem[]> {
     const sql = `
       SELECT 
         mt.ticket_number AS id,
@@ -160,11 +160,11 @@ export class FinanceRepository {
       FROM vecilomas.maintenance_tickets mt
       LEFT JOIN vecilomas.users u ON mt.reported_by_user_id = u.id
       LEFT JOIN vecilomas.units un ON mt.unit_id = un.id
-      WHERE ($1::uuid IS NULL OR mt.condominium_id = $1::uuid)
-        AND ($2::uuid IS NULL OR mt.unit_id = $2::uuid)
+      WHERE ($1::integer IS NULL OR mt.condominium_id = $1::integer)
+        AND ($2::integer IS NULL OR mt.unit_id = $2::integer)
       ORDER BY mt.created_at DESC;
     `
-    const { rows } = await query(sql, [condoId || null, unitId || null])
+    const { rows } = await query(sql, [condoId ? Number(condoId) : null, unitId ? Number(unitId) : null])
     return rows
   }
 
@@ -172,9 +172,9 @@ export class FinanceRepository {
    * Crea un nuevo ticket de soporte / falla
    */
   static async createTicket(data: {
-    condominiumId: string
-    reportedByUserId: string
-    unitId?: string
+    condominiumId: string | number
+    reportedByUserId: string | number
+    unitId?: string | number
     location: string
     category: TicketCategory
     title: string
@@ -186,14 +186,14 @@ export class FinanceRepository {
     const sql = `
       INSERT INTO vecilomas.maintenance_tickets (
         ticket_number, condominium_id, unit_id, reported_by_user_id, location, category, title, description, priority, status, created_at
-      ) VALUES ($1, $2, $3, $4, $5, $6::vecilomas.ticket_category, $7, $8, $9::vecilomas.ticket_priority, 'pendiente', NOW())
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pendiente', NOW())
       RETURNING *;
     `
     const { rows } = await query(sql, [
       ticketFolio,
-      data.condominiumId,
-      data.unitId || null,
-      data.reportedByUserId,
+      Number(data.condominiumId) || 1,
+      data.unitId ? Number(data.unitId) : null,
+      Number(data.reportedByUserId) || 1,
       data.location,
       data.category,
       data.title,
@@ -213,7 +213,7 @@ export class FinanceRepository {
   ) {
     const sql = `
       UPDATE vecilomas.maintenance_tickets
-      SET status = $2::vecilomas.ticket_status,
+      SET status = $2,
           assigned_to = COALESCE($3, assigned_to),
           resolved_at = CASE WHEN $2 = 'resuelto' THEN NOW() ELSE resolved_at END
       WHERE ticket_number = $1

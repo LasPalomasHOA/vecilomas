@@ -26,8 +26,8 @@ const DAYS_AHEAD = [
 ]
 
 export function InteractiveCalendar({
-  currentUnit = 'A-101',
-  currentResident = 'Carlos Mendoza',
+  currentUnit = '',
+  currentResident = '',
 }: {
   currentUnit?: string
   currentResident?: string
@@ -39,11 +39,26 @@ export function InteractiveCalendar({
   const [selectedSlot, setSelectedSlot] = useState<string>('')
   const [toastMsg, setToastMsg] = useState<string | null>(null)
 
+  if (amenities.length === 0) {
+    return (
+      <div className="rounded-2xl p-12 bg-white border border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)] text-center space-y-3 animate-fade-in">
+        <div className="w-14 h-14 mx-auto rounded-2xl bg-teal-50 border border-teal-100 text-teal-700 flex items-center justify-center">
+          <Ico n="calendar" c="w-7 h-7" />
+        </div>
+        <h3 className="font-display font-bold text-slate-800 text-lg">No hay áreas comunes registradas</h3>
+        <p className="text-xs sm:text-sm text-slate-500 max-w-md mx-auto">
+          Aún no se han dado de alta amenidades o áreas comunes en el sistema. Puedes agregar un nuevo espacio recreativo en el Catálogo de Áreas Comunes.
+        </p>
+      </div>
+    )
+  }
+
   const activeAmenity = amenities.find(a => a.id === selectedAmenityId) || amenities[0]
 
   const dayBookings = bookings.filter(b => {
+    if (!activeAmenity) return false
     const matchAmenity =
-      b.amenity.toLowerCase().includes(activeAmenity.name.toLowerCase()) ||
+      (b.amenity && b.amenity.toLowerCase().includes(activeAmenity.name?.toLowerCase() || '')) ||
       b.amenityId === activeAmenity.id
     return matchAmenity && b.status !== 'Cancelada' && b.status !== 'Rechazada'
   })
