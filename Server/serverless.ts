@@ -1,9 +1,9 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
-import { checkDbConnection } from '../Server/config/db.ts'
-import { HoaRepository } from '../Server/repositories/hoa.repository.ts'
-import { AmenitiesRepository } from '../Server/repositories/amenities.repository.ts'
-import { AccessRepository } from '../Server/repositories/access.repository.ts'
-import { FinanceRepository } from '../Server/repositories/finance.repository.ts'
+import { checkDbConnection } from './config/db.ts'
+import { HoaRepository } from './repositories/hoa.repository.ts'
+import { AmenitiesRepository } from './repositories/amenities.repository.ts'
+import { AccessRepository } from './repositories/access.repository.ts'
+import { FinanceRepository } from './repositories/finance.repository.ts'
 
 interface CustomRequest extends IncomingMessage {
   query?: Record<string, string>
