@@ -25,7 +25,7 @@ app.use((req, res, next) => {
 })
 
 // Endpoint de Health Check
-app.get('/api/health', async (_req, res) => {
+app.get(['/api/health', '/health'], async (_req, res) => {
   const dbHealth = await checkDbConnection()
   res.status(dbHealth.ok ? 200 : 503).json({
     status: dbHealth.ok ? 'healthy' : 'unhealthy',
@@ -34,8 +34,9 @@ app.get('/api/health', async (_req, res) => {
   })
 })
 
-// Montar Rutas API
+// Montar Rutas API tanto en /api como en / para compatibilidad total con Vercel
 app.use('/api', apiRoutes)
+app.use('/', apiRoutes)
 
 // Manejador global de errores
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {

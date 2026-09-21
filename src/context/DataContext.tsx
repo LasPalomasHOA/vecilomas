@@ -96,8 +96,17 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [fees, setFees] = useState<FeeStatement[]>([])
   const [tickets, setTickets] = useState<MaintenanceTicket[]>([])
 
-  // Computed selected condominium
-  const selectedCondominium = condominiums.find(c => c.id === selectedCondominiumId) || condominiums[0]
+  const DEFAULT_CONDO: Condominium = {
+    id: 1,
+    name: 'Condominio Residencial Las Palomas',
+    address: 'Blvd. Costero #150, Sandy Beach',
+    city: 'Puerto Peñasco, Sonora',
+    postalCode: '83550',
+    currency: 'MXN',
+  }
+
+  // Computed selected condominium with guaranteed fallback
+  const selectedCondominium = condominiums.find(c => c.id === selectedCondominiumId) || condominiums[0] || DEFAULT_CONDO
 
   // ── Auto-load from Backend API / Database ──────────────────────────────────
   const loadCondoData = useCallback(async (condoId?: number | null) => {
@@ -172,9 +181,18 @@ export function DataProvider({ children }: { children: ReactNode }) {
           setCondominiums(data)
           setSelectedCondominiumId(prev => (prev !== null ? prev : data[0].id))
           loadCondoData(data[0].id)
+        } else {
+          setCondominiums([DEFAULT_CONDO])
+          setSelectedCondominiumId(1)
+          loadCondoData(1)
         }
       })
-      .catch(() => {})
+      .catch((err) => {
+        console.warn('Conectando con datos iniciales:', err)
+        setCondominiums([DEFAULT_CONDO])
+        setSelectedCondominiumId(1)
+        loadCondoData(1)
+      })
   }, [loadCondoData])
 
   // When selected condominium changes
