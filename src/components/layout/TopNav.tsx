@@ -76,9 +76,9 @@ export function TopNav({
         </nav>
 
         {/* User Card & Logout */}
-        <div className="flex items-center gap-2.5 flex-shrink-0">
-          <div className="hidden sm:flex items-center gap-3 pl-3.5 pr-2 py-1.5 rounded-2xl bg-slate-100/80 border border-teal-950/[0.06] shadow-xs">
-            <div className="text-right">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 flex-shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 pl-2 sm:pl-3.5 pr-1.5 sm:pr-2 py-1 sm:py-1.5 rounded-2xl bg-slate-100/80 border border-teal-950/[0.06] shadow-xs">
+            <div className="text-right hidden sm:block">
               <p className="text-xs font-bold text-slate-900 leading-tight">
                 {user.name}
               </p>
@@ -94,8 +94,14 @@ export function TopNav({
               </div>
             </div>
 
+            {user.unit && (
+              <span className="sm:hidden text-[10px] font-mono font-bold text-[#008080] bg-teal-50 px-1.5 py-0.5 rounded-md border border-teal-200/80">
+                {user.unit}
+              </span>
+            )}
+
             <div
-              className="w-8 h-8 rounded-xl flex items-center justify-center text-xs font-black text-white shadow-[0_2px_8px_rgba(0,128,128,0.25)] border border-white/20"
+              className="w-7 h-7 sm:w-8 sm:h-8 rounded-xl flex items-center justify-center text-[11px] sm:text-xs font-black text-white shadow-[0_2px_8px_rgba(0,128,128,0.25)] border border-white/20 shrink-0"
               style={{
                 background: `linear-gradient(135deg, ${BRAND_COLORS.primary}, ${BRAND_COLORS.primaryDark})`,
               }}
@@ -107,7 +113,7 @@ export function TopNav({
           <button
             onClick={onLogout}
             title="Cerrar sesión"
-            className="p-2.5 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50/80 transition-all cursor-pointer border border-transparent hover:border-red-100"
+            className="p-2 sm:p-2.5 rounded-xl text-slate-400 hover:text-red-600 hover:bg-red-50/80 transition-all cursor-pointer border border-transparent hover:border-red-100"
           >
             <Ico n="logout" c="w-4 h-4" />
           </button>

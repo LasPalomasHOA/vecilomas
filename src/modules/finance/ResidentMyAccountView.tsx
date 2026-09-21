@@ -266,14 +266,14 @@ export function ResidentMyAccountView({
                     </button>
                   </div>
 
-                  <div className="flex items-center justify-between p-2 rounded-xl bg-white border border-slate-200/60 sm:col-span-2">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-2.5 sm:p-3 rounded-xl bg-white border border-slate-200/60 sm:col-span-2 gap-2">
                     <div>
                       <p className="text-slate-500 text-[10px] font-medium">CLABE Interbancaria (18 dígitos):</p>
-                      <p className="font-mono font-bold text-teal-950 text-sm sm:text-base mt-0.5">012 180 00123456789 0</p>
+                      <p className="font-mono font-bold text-teal-950 text-xs sm:text-base mt-0.5 tracking-tight">012 180 00123456789 0</p>
                     </div>
                     <button
                       onClick={() => handleCopy('012180001234567890', 'CLABE')}
-                      className="px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+                      className="w-full sm:w-auto px-3 py-1.5 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors cursor-pointer shadow-xs shrink-0"
                     >
                       <Ico n="copy" c="w-3.5 h-3.5" />
                       <span>Copiar CLABE</span>
