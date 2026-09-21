@@ -5,7 +5,7 @@ dotenv.config();
 var { Pool } = pg;
 var isProduction = process.env.NODE_ENV === "production";
 var defaultSchema = process.env.DB_SCHEMA || "vecilomas";
-var rawConnectionString = process.env.POSTGRES_URL || process.env.POSTGRES_PRISMA_URL || process.env.DATABASE_URL || "postgres://vecilomas_app.kjzkztkspujkbvymwnvy:VeciLomas_2026@aws-0-us-east-1.pooler.supabase.com:6543/postgres";
+var rawConnectionString = process.env.POSTGRES_URL || process.env.POSTGRES_PRISMA_URL || process.env.DATABASE_URL || "";
 function getPoolConfig() {
   const commonOptions = {
     ssl: { rejectUnauthorized: false },
