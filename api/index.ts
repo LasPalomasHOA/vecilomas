@@ -32,7 +32,7 @@ async function parseBody(req: IncomingMessage): Promise<any> {
 }
 
 export default async function handler(req: CustomRequest, res: CustomResponse) {
-  // Configuración de cabeceras CORS para acceso total
+  // Configuración de cabeceras CORS
   res.setHeader('Access-Control-Allow-Credentials', 'true')
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,PATCH,DELETE,POST,PUT')
@@ -232,11 +232,12 @@ export default async function handler(req: CustomRequest, res: CustomResponse) {
     }
 
     if (pathname === '/api/amenities/availability' && method === 'GET') {
+      const start = queryParams.date && queryParams.startTime ? `${queryParams.date}T${queryParams.startTime}:00` : ''
+      const end = queryParams.date && queryParams.endTime ? `${queryParams.date}T${queryParams.endTime}:00` : ''
       const available = await AmenitiesRepository.checkAvailability(
         Number(queryParams.amenityId),
-        queryParams.date,
-        queryParams.startTime,
-        queryParams.endTime
+        start,
+        end
       )
       return sendJson(200, { success: true, available })
     }
@@ -254,12 +255,12 @@ export default async function handler(req: CustomRequest, res: CustomResponse) {
     }
 
     if (pathname === '/api/access/validate-qr' && method === 'POST') {
-      const validation = await AccessRepository.validateQR(body.code)
+      const validation = await AccessRepository.validateQRCode(body.code)
       return sendJson(200, { success: true, data: validation })
     }
 
     if (pathname === '/api/access/visits' && method === 'GET') {
-      const visits = await AccessRepository.getVisitsLog(queryParams.condoId)
+      const visits = await AccessRepository.getVisitLogs(queryParams.condoId)
       return sendJson(200, { success: true, data: visits })
     }
 
