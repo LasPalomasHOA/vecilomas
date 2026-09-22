@@ -98,14 +98,27 @@ export const ApiClient = {
 
   // Finanzas & Tickets
   finance: {
-    getFees: (unitId?: string) => request<any[]>(`/finance/fees${unitId ? `?unitId=${unitId}` : ''}`),
+    getFees: (unitId?: string, condoId?: string | number) => {
+      const params = new URLSearchParams()
+      if (condoId) params.append('condoId', String(condoId))
+      if (unitId) params.append('unitId', unitId)
+      const q = params.toString()
+      return request<any[]>(`/finance/fees${q ? `?${q}` : ''}`)
+    },
     registerPayment: (data: any) => request('/finance/payments', { method: 'POST', body: JSON.stringify(data) }),
-    getTickets: (unitId?: string) => request<any[]>(`/finance/tickets${unitId ? `?unitId=${unitId}` : ''}`),
+    getTickets: (unitId?: string, condoId?: string | number) => {
+      const params = new URLSearchParams()
+      if (condoId) params.append('condoId', String(condoId))
+      if (unitId) params.append('unitId', unitId)
+      const q = params.toString()
+      return request<any[]>(`/finance/tickets${q ? `?${q}` : ''}`)
+    },
     createTicket: (data: any) => request('/finance/tickets', { method: 'POST', body: JSON.stringify(data) }),
     updateTicketStatus: (id: string | number, status: string, assignedTo?: string) =>
       request(`/finance/tickets/${id}/status`, {
         method: 'PATCH',
         body: JSON.stringify({ status, assignedTo }),
       }),
+
   },
 }

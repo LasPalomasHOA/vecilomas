@@ -1322,7 +1322,62 @@ var FinanceRepository = class {
    * Crea un nuevo ticket de soporte / falla
    */
   static async createTicket(data) {
-    const ticketFolio = `TKT-${Math.floor(2025 + Math.random() * 500)}`;
+    const condoId = Number(data.condominiumId || data.condoId) || 1;
+    let resolvedUnitId = data.unitId ? Number(data.unitId) : null;
+    const unitName = data.unit || data.unitNumber;
+    if (!resolvedUnitId && unitName) {
+      const cleanUnit = unitName.replace(/[()]/g, "").trim();
+      const unitRes = await query(
+        `SELECT id FROM vecilomas.units WHERE condominium_id = $1 AND (unit_number = $2 OR unit_number ILIKE $3) LIMIT 1;`,
+        [condoId, cleanUnit, `%${cleanUnit}%`]
+      );
+      if (unitRes.rows.length > 0) {
+        resolvedUnitId = unitRes.rows[0].id;
+      }
+    }
+    if (!resolvedUnitId) {
+      const fallbackUnit = await query(
+        `SELECT id FROM vecilomas.units WHERE condominium_id = $1 LIMIT 1;`,
+        [condoId]
+      );
+      if (fallbackUnit.rows.length > 0) {
+        resolvedUnitId = fallbackUnit.rows[0].id;
+      }
+    }
+    let resolvedUserId = data.reportedByUserId ? Number(data.reportedByUserId) : null;
+    const repName = data.reporter || data.reporterName;
+    if (!resolvedUserId && repName) {
+      const cleanName = repName.split("(")[0].trim();
+      const userRes = await query(
+        `SELECT id FROM vecilomas.users WHERE full_name ILIKE $1 LIMIT 1;`,
+        [`%${cleanName}%`]
+      );
+      if (userRes.rows.length > 0) {
+        resolvedUserId = userRes.rows[0].id;
+      }
+    }
+    if (!resolvedUserId) {
+      const fallbackUser = await query(`SELECT id FROM vecilomas.users ORDER BY id ASC LIMIT 1;`);
+      resolvedUserId = fallbackUser.rows[0]?.id || 1;
+    }
+    const countRes = await query(
+      `SELECT count(*)::int as c FROM vecilomas.maintenance_tickets WHERE created_at >= date_trunc('year', NOW());`
+    );
+    const nextSeq = (countRes.rows[0]?.c || 0) + 1;
+    const currentYear = (/* @__PURE__ */ new Date()).getFullYear();
+    let ticketFolio = `TCK-${currentYear}-${String(nextSeq).padStart(3, "0")}`;
+    const checkExists = await query(
+      `SELECT id FROM vecilomas.maintenance_tickets WHERE ticket_number = $1 LIMIT 1;`,
+      [ticketFolio]
+    );
+    if (checkExists.rows.length > 0) {
+      ticketFolio = `TCK-${currentYear}-${String(nextSeq + Math.floor(Math.random() * 900) + 10).padStart(3, "0")}`;
+    }
+    const rawPriority = String(data.priority || "media").toLowerCase();
+    const dbPriority = rawPriority.includes("alt") || rawPriority.includes("urg") ? "alta" : rawPriority.includes("baj") ? "baja" : "media";
+    const title = data.title || data.issue || data.location || "Reporte de Mantenimiento";
+    const description = data.description || data.issue || data.title || "Sin descripci\xF3n detallada";
+    const category = data.category || "General";
     const sql = `
       INSERT INTO vecilomas.maintenance_tickets (
         ticket_number, condominium_id, unit_id, reported_by_user_id, location, category, title, description, priority, status, created_at
@@ -1331,30 +1386,51 @@ var FinanceRepository = class {
     `;
     const { rows } = await query(sql, [
       ticketFolio,
-      Number(data.condominiumId) || 1,
-      data.unitId ? Number(data.unitId) : null,
-      Number(data.reportedByUserId) || 1,
-      data.location,
-      data.category,
-      data.title,
-      data.description,
-      data.priority
+      condoId,
+      resolvedUnitId,
+      resolvedUserId,
+      data.location || "\xC1reas Comunes",
+      category,
+      title,
+      description,
+      dbPriority
     ]);
-    return rows[0];
+    const created = rows[0];
+    return {
+      id: created.ticket_number,
+      location: created.location,
+      reporter: repName || "Administraci\xF3n General",
+      unit: unitName || void 0,
+      issue: created.description,
+      priority: created.priority === "alta" ? "Alta" : created.priority === "baja" ? "Baja" : "Media",
+      status: "Pendiente",
+      date: (/* @__PURE__ */ new Date()).toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" }),
+      assignedTo: created.assigned_to || "",
+      notes: created.title
+    };
   }
   /**
    * Actualiza el estatus o asignación de un ticket
    */
-  static async updateTicketStatus(ticketNumber, status, assignedTo) {
+  static async updateTicketStatus(ticketNumberOrId, status, assignedTo) {
+    const rawStatus = (status || "").toLowerCase();
+    let dbStatus = "pendiente";
+    if (rawStatus.includes("proc") || rawStatus.includes("proceso") || rawStatus.includes("en_proceso")) {
+      dbStatus = "en_proceso";
+    } else if (rawStatus.includes("resuel") || rawStatus.includes("resolv") || rawStatus.includes("resuelto")) {
+      dbStatus = "resuelto";
+    } else if (rawStatus.includes("canc")) {
+      dbStatus = "cancelado";
+    }
     const sql = `
       UPDATE vecilomas.maintenance_tickets
-      SET status = $2,
-          assigned_to = COALESCE($3, assigned_to),
-          resolved_at = CASE WHEN $2 = 'resuelto' THEN NOW() ELSE resolved_at END
-      WHERE ticket_number = $1
+      SET status = $2::varchar,
+          assigned_to = COALESCE($3::varchar, assigned_to),
+          resolved_at = CASE WHEN $2::varchar = 'resuelto' THEN NOW() ELSE resolved_at END
+      WHERE ticket_number = $1::varchar OR id::text = $1::varchar
       RETURNING *;
     `;
-    const { rows } = await query(sql, [ticketNumber, status.toLowerCase(), assignedTo || null]);
+    const { rows } = await query(sql, [String(ticketNumberOrId), dbStatus, assignedTo || null]);
     return rows[0];
   }
 };

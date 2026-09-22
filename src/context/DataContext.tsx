@@ -67,9 +67,10 @@ interface DataContextType {
   fees: FeeStatement[]
   tickets: MaintenanceTicket[]
   registerFeePayment: (id: string | number, method?: string, reference?: string) => Promise<void> | void
-  addTicket: (t: Omit<MaintenanceTicket, 'id' | 'date' | 'status'>) => MaintenanceTicket
-  updateTicketStatus: (id: string, status: TicketStatus, assignedTo?: string) => void
+  addTicket: (t: Omit<MaintenanceTicket, 'id' | 'date' | 'status'> & { id?: string; date?: string; status?: TicketStatus }) => Promise<MaintenanceTicket> | MaintenanceTicket
+  updateTicketStatus: (id: string, status: TicketStatus, assignedTo?: string) => Promise<void> | void
 }
+
 
 const DataContext = createContext<DataContextType | null>(null)
 
@@ -121,8 +122,8 @@ export function DataProvider({ children }: { children: ReactNode }) {
         ApiClient.amenities.getBookings(undefined, targetCondoId),
         ApiClient.access.getPasses(targetCondoId),
         ApiClient.access.getVisits(targetCondoId),
-        ApiClient.finance.getFees(),
-        ApiClient.finance.getTickets(),
+        ApiClient.finance.getFees(undefined, targetCondoId),
+        ApiClient.finance.getTickets(undefined, targetCondoId),
       ])
 
       if (dirData.status === 'fulfilled' && Array.isArray(dirData.value)) {
@@ -704,26 +705,60 @@ export function DataProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  function addTicket(t: Omit<MaintenanceTicket, 'id' | 'date' | 'status'>) {
+  async function addTicket(t: Omit<MaintenanceTicket, 'id' | 'date' | 'status'> & { id?: string; date?: string; status?: TicketStatus }) {
     const today = new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
-    const newId = `TCK-00${tickets.length + 1}`
-    const newTicket: MaintenanceTicket = {
-      id: newId,
+    const tempId = `TCK-${new Date().getFullYear()}-${String(Math.floor(100 + Math.random() * 900))}`
+    const tempTicket: MaintenanceTicket = {
+      id: tempId,
       date: today,
       status: 'Pendiente',
       ...t,
     }
-    setTickets(prev => [newTicket, ...prev])
-    return newTicket
+    setTickets(prev => [tempTicket, ...prev])
+
+    try {
+      const created: any = await ApiClient.finance.createTicket({
+        condominiumId: selectedCondominiumId || 1,
+        location: t.location,
+        reporter: t.reporter,
+        unit: t.unit,
+        issue: t.issue,
+        title: t.notes || t.issue || t.location,
+        description: t.issue,
+        priority: t.priority,
+        category: 'General',
+      })
+      const list = await ApiClient.finance.getTickets(undefined, selectedCondominiumId || 1)
+      if (Array.isArray(list) && list.length > 0) {
+        setTickets(list)
+      } else if (created && created.id) {
+        setTickets(prev => prev.map(item => (item.id === tempId ? { ...item, id: created.id } : item)))
+      }
+      return created || tempTicket
+    } catch (err) {
+      console.warn('Error saving maintenance ticket to PostgreSQL:', err)
+      return tempTicket
+    }
   }
 
-  function updateTicketStatus(id: string, status: TicketStatus, assignedTo?: string) {
+  async function updateTicketStatus(id: string, status: TicketStatus, assignedTo?: string) {
     setTickets(prev =>
       prev.map(t =>
         t.id === id ? { ...t, status, ...(assignedTo ? { assignedTo } : {}) } : t
       )
     )
+
+    try {
+      await ApiClient.finance.updateTicketStatus(id, status, assignedTo)
+      const list = await ApiClient.finance.getTickets(undefined, selectedCondominiumId || 1)
+      if (Array.isArray(list)) {
+        setTickets(list)
+      }
+    } catch (err) {
+      console.warn('Error updating ticket status in PostgreSQL:', err)
+    }
   }
+
 
   return (
     <DataContext.Provider
