@@ -40,9 +40,9 @@ export function ResidentMyAccountView({
   const myFees = fees.filter(f => f.unit === unit || !f.unit || f.unit === 'S/N')
   const myFee = fees.find(f => f.unit === unit) || myFees[0]
 
-  function handleExportMyStatement() {
+  async function handleExportMyStatement() {
     try {
-      const fileName = exportResidentStatementToExcel(
+      const fileName = await exportResidentStatementToExcel(
         myFees.length > 0 ? myFees : fees.slice(0, 3),
         name,
         unit,

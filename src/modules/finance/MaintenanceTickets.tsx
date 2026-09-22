@@ -65,9 +65,9 @@ export function MaintenanceTickets() {
     return matchP && matchS
   })
 
-  function handleExportExcel() {
+  async function handleExportExcel() {
     try {
-      const fileName = exportTicketsToExcel(
+      const fileName = await exportTicketsToExcel(
         filtered,
         selectedCondominium?.name || 'Condominio Residencial Las Palomas'
       )

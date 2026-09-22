@@ -40,9 +40,9 @@ export function FeeControl() {
     setTimeout(() => setToastMsg(null), 4000)
   }
 
-  function handleExportReport() {
+  async function handleExportReport() {
     try {
-      const fileName = exportFullFinanceReportToExcel({
+      const fileName = await exportFullFinanceReportToExcel({
         fees: filtered,
         payments: payments,
         tickets: tickets,

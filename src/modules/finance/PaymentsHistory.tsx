@@ -44,9 +44,9 @@ export function PaymentsHistory() {
     setTimeout(() => setCopiedRef(null), 2500)
   }
 
-  function handleExportExcel() {
+  async function handleExportExcel() {
     try {
-      const fileName = exportPaymentsToExcel(
+      const fileName = await exportPaymentsToExcel(
         filtered,
         selectedCondominium?.name || 'Condominio Residencial Las Palomas'
       )
