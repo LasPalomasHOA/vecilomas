@@ -57,18 +57,19 @@ export function TopNav({
               <button
                 key={item.id}
                 onClick={() => onSelect(item.id)}
-                className={`relative flex items-center gap-2 px-3.5 py-1.5 rounded-xl text-xs sm:text-sm font-medium transition-all duration-200 focus:outline-none cursor-pointer ${
+                className={`relative flex items-center justify-center gap-2 px-3 xl:px-3.5 py-2 rounded-xl text-xs xl:text-sm font-medium whitespace-nowrap transition-all duration-200 focus:outline-none cursor-pointer shrink-0 select-none ${
                   isActive
                     ? 'bg-white text-teal-950 shadow-[0_2px_8px_rgba(0,51,51,0.08)] font-bold border border-teal-950/[0.05]'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-white/60'
                 }`}
               >
-                <span className={`transition-colors ${isActive ? 'text-[#008080]' : 'text-slate-400'}`}>
+                <span className={`transition-colors shrink-0 ${isActive ? 'text-[#008080]' : 'text-slate-400'}`}>
                   {item.icon}
                 </span>
-                <span>{item.label}</span>
+                <span className="hidden xl:inline">{item.label}</span>
+                <span className="xl:hidden">{item.shortLabel || item.label}</span>
                 {isActive && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#008080] ml-0.5" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#008080] shrink-0 ml-0.5" />
                 )}
               </button>
             )

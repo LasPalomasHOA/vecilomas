@@ -32,7 +32,7 @@ function getNavItems(role: UserRole): NavItem[] {
   if (role === 'admin') {
     return [
       { id: 'dashboard', label: 'Inicio', shortLabel: 'Inicio', icon: <Ico n="home" c="w-4 h-4" /> },
-      { id: 'hoa', label: 'Administración HOA', shortLabel: 'HOA', icon: <Ico n="building" c="w-4 h-4" /> },
+      { id: 'hoa', label: 'Administración HOA', shortLabel: 'Admin HOA', icon: <Ico n="building" c="w-4 h-4" /> },
       { id: 'amenities', label: 'Amenidades', shortLabel: 'Amenidades', icon: <Ico n="calendar" c="w-4 h-4" /> },
       { id: 'access', label: 'Accesos e Invitados', shortLabel: 'Accesos', icon: <Ico n="shield" c="w-4 h-4" /> },
       { id: 'finance', label: 'Finanzas y Mantenimiento', shortLabel: 'Finanzas', icon: <Ico n="dollar" c="w-4 h-4" /> },

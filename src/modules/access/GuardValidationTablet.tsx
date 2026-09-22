@@ -77,7 +77,7 @@ export function GuardValidationTablet() {
       streamRef.current.getTracks().forEach(track => {
         try {
           track.stop()
-        } catch (e) {}
+        } catch (e) { }
       })
       streamRef.current = null
     }
@@ -314,11 +314,10 @@ export function GuardValidationTablet() {
 
           {/* Real Camera Scanner View */}
           <div
-            className={`rounded-3xl p-4 sm:p-5 text-center mb-5 border transition-all duration-300 relative overflow-hidden ${
-              cameraActive
+            className={`rounded-3xl p-4 sm:p-5 text-center mb-5 border transition-all duration-300 relative overflow-hidden ${cameraActive
                 ? 'border-teal-500/80 bg-slate-950 text-white shadow-2xl'
                 : 'border-dashed border-teal-900/20 bg-slate-50/80 text-slate-700'
-            }`}
+              }`}
           >
             {cameraActive ? (
               <div className="space-y-3.5">
@@ -349,7 +348,7 @@ export function GuardValidationTablet() {
                     muted
                     className="w-full h-full object-cover"
                   />
-                  
+
                   {/* Futuristic Scanner Laser Line Overlay */}
                   <div className="absolute inset-x-4 top-1/2 h-0.5 bg-gradient-to-r from-transparent via-teal-400 to-transparent shadow-[0_0_16px_#2dd4bf] animate-pulse pointer-events-none" />
 
@@ -450,11 +449,10 @@ export function GuardValidationTablet() {
           {/* Validation Feedback Result */}
           {validationResult && (
             <div
-              className={`mt-5 p-5 rounded-2xl border animate-fade-in ${
-                validationResult.valid
+              className={`mt-5 p-5 rounded-2xl border animate-fade-in ${validationResult.valid
                   ? 'bg-gradient-to-br from-teal-50 to-emerald-50/50 border-teal-300 shadow-sm'
                   : 'bg-gradient-to-br from-red-50 to-rose-50/50 border-red-300 shadow-sm'
-              }`}
+                }`}
             >
               {validationResult.valid && validationResult.pass ? (
                 <div className="space-y-3.5">
