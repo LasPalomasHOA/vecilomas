@@ -9,6 +9,7 @@ import Btn from '@/components/common/Button'
 import Modal from '@/components/common/Modal'
 import Ico from '@/components/common/Icons'
 import QRVisual from '@/components/common/QRVisual'
+import { exportResidentStatementToExcel } from '@/utils/excelExporter'
 
 type ResidentAccountTab = 'statement' | 'tickets'
 
@@ -23,7 +24,7 @@ export function ResidentMyAccountView({
   name,
   defaultTab = 'statement',
 }: ResidentMyAccountViewProps) {
-  const { fees, tickets, addTicket } = useData()
+  const { fees, tickets, selectedCondominium, addTicket } = useData()
   const [tab, setTab] = useState<ResidentAccountTab>(defaultTab)
   const [modalTicketOpen, setModalTicketOpen] = useState(false)
   const [ticketToast, setTicketToast] = useState<string | null>(null)
@@ -36,7 +37,23 @@ export function ResidentMyAccountView({
     priority: 'Media' as TicketPriority,
   })
 
-  const myFee = fees.find(f => f.unit === unit)
+  const myFees = fees.filter(f => f.unit === unit || !f.unit || f.unit === 'S/N')
+  const myFee = fees.find(f => f.unit === unit) || myFees[0]
+
+  function handleExportMyStatement() {
+    try {
+      const fileName = exportResidentStatementToExcel(
+        myFees.length > 0 ? myFees : fees.slice(0, 3),
+        name,
+        unit,
+        selectedCondominium?.name || 'Condominio Residencial Las Palomas'
+      )
+      setTicketToast(`📊 Estado de cuenta descargado en Excel: "${fileName}"`)
+      setTimeout(() => setTicketToast(null), 4000)
+    } catch (err: any) {
+      setTicketToast(`Error al exportar: ${err?.message || err}`)
+    }
+  }
   const myTickets = tickets.filter(
     t => t.reporter.toLowerCase().includes(name.split(' ')[0].toLowerCase()) || t.unit === unit
   )
@@ -281,6 +298,81 @@ export function ResidentMyAccountView({
                   </div>
                 </div>
               </GCard>
+            </div>
+          </div>
+
+          {/* Statement and Payments History Card with Excel Export */}
+          <div className="rounded-3xl bg-white border border-slate-200/80 shadow-xs overflow-hidden">
+            <div className="p-5 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-teal-600" />
+                  <h3 className="font-display font-bold text-slate-900 text-base sm:text-lg">
+                    Historial de Cuotas y Recibos
+                  </h3>
+                </div>
+                <p className="text-xs text-slate-500 mt-1">
+                  Consulta tus cuotas ordinarias y extraordinarias asignadas a la unidad {unit}.
+                </p>
+              </div>
+
+              <button
+                onClick={handleExportMyStatement}
+                title="Descargar Estado de Cuenta en Excel (.xlsx)"
+                className="text-xs font-bold text-emerald-950 bg-emerald-50 hover:bg-emerald-100/90 border border-emerald-200/80 transition-all flex items-center gap-2.5 px-4 py-2.5 rounded-xl cursor-pointer shadow-2xs self-start sm:self-auto active:scale-95"
+              >
+                <span className="w-6 h-6 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-[10px] font-black shadow-2xs">
+                  XLS
+                </span>
+                <span>Descargar Estado de Cuenta (.xlsx)</span>
+              </button>
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-slate-50/75 border-b border-slate-100 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                    <th className="py-3 px-4 sm:px-6">Folio / Período</th>
+                    <th className="py-3 px-4 sm:px-6">Concepto</th>
+                    <th className="py-3 px-4 sm:px-6">Monto</th>
+                    <th className="py-3 px-4 sm:px-6">Vencimiento</th>
+                    <th className="py-3 px-4 sm:px-6">Fecha Pago</th>
+                    <th className="py-3 px-4 sm:px-6">Estado</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 text-xs text-slate-700">
+                  {myFees.length === 0 ? (
+                    <tr>
+                      <td colSpan={6} className="py-8 text-center text-slate-400 font-medium">
+                        No hay registros de cuotas para tu unidad.
+                      </td>
+                    </tr>
+                  ) : (
+                    myFees.map((fee) => (
+                      <tr key={fee.id} className="hover:bg-slate-50/60 transition-colors">
+                        <td className="py-3.5 px-4 sm:px-6 font-mono font-bold text-slate-900">
+                          {fee.id}
+                        </td>
+                        <td className="py-3.5 px-4 sm:px-6 font-medium text-slate-900">
+                          {fee.concept}
+                        </td>
+                        <td className="py-3.5 px-4 sm:px-6 font-bold text-slate-900">
+                          ${(Number(fee.amount) || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN
+                        </td>
+                        <td className="py-3.5 px-4 sm:px-6 text-slate-500">
+                          {fee.dueDate}
+                        </td>
+                        <td className="py-3.5 px-4 sm:px-6 text-slate-500 font-mono">
+                          {fee.date || '—'}
+                        </td>
+                        <td className="py-3.5 px-4 sm:px-6">
+                          <Badge text={fee.status} className="text-xs px-2.5 py-0.5" />
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

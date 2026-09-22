@@ -6,9 +6,10 @@ import Badge from '@/components/common/Badge'
 import Btn from '@/components/common/Button'
 import Modal from '@/components/common/Modal'
 import Ico from '@/components/common/Icons'
+import { exportTicketsToExcel } from '@/utils/excelExporter'
 
 export function MaintenanceTickets() {
-  const { tickets, updateTicketStatus, addTicket } = useData()
+  const { tickets, selectedCondominium, updateTicketStatus, addTicket } = useData()
   const [filterPriority, setFilterPriority] = useState<'all' | TicketPriority>('all')
   const [filterStatus, setFilterStatus] = useState<'all' | TicketStatus>('all')
   const [modalOpen, setModalOpen] = useState(false)
@@ -64,18 +65,31 @@ export function MaintenanceTickets() {
     return matchP && matchS
   })
 
+  function handleExportExcel() {
+    try {
+      const fileName = exportTicketsToExcel(
+        filtered,
+        selectedCondominium?.name || 'Condominio Residencial Las Palomas'
+      )
+      setToastMsg(`📊 Reporte de tickets descargado: "${fileName}"`)
+      setTimeout(() => setToastMsg(null), 4000)
+    } catch (err: any) {
+      setToastMsg(`Error al exportar tickets: ${err?.message || err}`)
+    }
+  }
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {toastMsg && (
-        <div className="p-3.5 rounded-2xl bg-teal-50 border border-teal-100 text-teal-800 text-xs font-semibold flex items-center gap-2 animate-fade-in">
-          <Ico n="check" c="w-4 h-4 text-teal-600" />
+        <div className="p-4 rounded-2xl bg-teal-50 border border-teal-100 text-teal-900 text-xs sm:text-sm font-semibold flex items-center gap-3 animate-fade-in shadow-xs">
+          <Ico n="check" c="w-5 h-5 text-teal-600" />
           {toastMsg}
         </div>
       )}
 
-      {/* Top Controls */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
-        <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar flex-nowrap sm:flex-wrap">
+      {/* Top Filter and Actions Bar */}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 bg-white p-4 rounded-2xl border border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
+        <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar flex-1 flex-wrap sm:flex-nowrap">
           {/* Priority filter */}
           <select
             value={filterPriority}
@@ -101,10 +115,23 @@ export function MaintenanceTickets() {
           </select>
         </div>
 
-        <Btn onClick={() => setModalOpen(true)} className="shrink-0 whitespace-nowrap font-semibold shadow-xs">
-          <Ico n="plus" c="w-4 h-4" />
-          Nuevo Reporte de Falla
-        </Btn>
+        <div className="flex items-center gap-2.5 shrink-0 flex-wrap sm:flex-nowrap">
+          <button
+            onClick={handleExportExcel}
+            title="Exportar tickets a Excel (.xlsx)"
+            className="text-xs font-bold text-emerald-900 bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200 transition-all flex items-center gap-2 px-3.5 py-2.5 rounded-xl cursor-pointer whitespace-nowrap shadow-2xs active:scale-95"
+          >
+            <span className="w-5 h-5 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-[9px] font-black">
+              XLS
+            </span>
+            <span>Exportar a Excel</span>
+          </button>
+
+          <Btn onClick={() => setModalOpen(true)} className="shrink-0 whitespace-nowrap font-semibold shadow-xs">
+            <Ico n="plus" c="w-4 h-4" />
+            <span>Nuevo Reporte</span>
+          </Btn>
+        </div>
       </div>
 
       {/* Tickets Cards */}

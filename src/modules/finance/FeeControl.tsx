@@ -6,9 +6,10 @@ import Badge from '@/components/common/Badge'
 import Btn from '@/components/common/Button'
 import Modal from '@/components/common/Modal'
 import Ico from '@/components/common/Icons'
+import { exportFullFinanceReportToExcel } from '@/utils/excelExporter'
 
 export function FeeControl() {
-  const { fees, registerFeePayment } = useData()
+  const { fees, tickets, selectedCondominium, registerFeePayment } = useData()
   const [filterStatus, setFilterStatus] = useState<'all' | FeeStatus>('all')
   const [modalPayment, setModalPayment] = useState<FeeStatement | null>(null)
   const [payMethod, setPayMethod] = useState('Transferencia SPEI')
@@ -40,8 +41,17 @@ export function FeeControl() {
   }
 
   function handleExportReport() {
-    setToastMsg('Generando y descargando reporte contable en formato PDF / Excel...')
-    setTimeout(() => setToastMsg(null), 3500)
+    try {
+      const fileName = exportFullFinanceReportToExcel({
+        fees: filtered,
+        tickets: tickets,
+        condominiumName: selectedCondominium?.name || 'Condominio Residencial Las Palomas',
+      })
+      setToastMsg(`📊 Reporte descargado exitosamente: "${fileName}"`)
+      setTimeout(() => setToastMsg(null), 4500)
+    } catch (err: any) {
+      setToastMsg(`Error al generar el archivo Excel: ${err?.message || err}`)
+    }
   }
 
   const filtered = fees.filter(f => (filterStatus === 'all' ? true : f.status === filterStatus))
@@ -150,10 +160,13 @@ export function FeeControl() {
 
           <button
             onClick={handleExportReport}
-            className="text-xs font-semibold text-slate-700 hover:text-slate-900 transition-colors flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-white border border-slate-200 hover:bg-slate-50 cursor-pointer self-end sm:self-auto whitespace-nowrap shrink-0 shadow-2xs"
+            title="Exportar archivo Excel (.xlsx)"
+            className="text-xs font-bold text-emerald-900 bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200 transition-all flex items-center gap-2 px-3.5 py-2 rounded-xl cursor-pointer self-end sm:self-auto whitespace-nowrap shrink-0 shadow-2xs active:scale-95"
           >
-            <Ico n="dl" c="w-4 h-4 text-teal-600" />
-            Exportar Reporte
+            <span className="w-5 h-5 rounded-lg bg-emerald-600 text-white flex items-center justify-center text-[9px] font-black">
+              XLS
+            </span>
+            <span>Exportar a Excel (.xlsx)</span>
           </button>
         </div>
 
