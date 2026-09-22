@@ -18,9 +18,10 @@ const rawConnectionString =
 function getPoolConfig(): pg.PoolConfig {
   const commonOptions = {
     ssl: { rejectUnauthorized: false },
-    max: isProduction ? 5 : 20,
+    max: isProduction ? 5 : 15,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 8000,
+    connectionTimeoutMillis: 20000,
+    keepAlive: true,
     options: `-c search_path=${defaultSchema},public -c timezone=America/Hermosillo`,
   }
 
@@ -45,13 +46,17 @@ function getPoolConfig(): pg.PoolConfig {
 export const pool = new Pool(getPoolConfig())
 
 pool.on('error', (err) => {
-  console.error('[DB Pool Error Inesperado]:', err)
+  console.error('[DB Pool Error Inesperado]:', err?.message || err)
 })
 
 /**
- * Ejecuta una consulta parametrizada con métricas de tiempo y captura de errores
+ * Ejecuta una consulta parametrizada con métricas de tiempo y captura de errores con reintento automático
  */
-export async function query<T extends pg.QueryResultRow = any>(text: string, params?: any[]): Promise<pg.QueryResult<T>> {
+export async function query<T extends pg.QueryResultRow = any>(
+  text: string,
+  params?: any[],
+  retries = 1
+): Promise<pg.QueryResult<T>> {
   const start = Date.now()
   try {
     const res = await pool.query<T>(text, params)
@@ -60,7 +65,12 @@ export async function query<T extends pg.QueryResultRow = any>(text: string, par
       console.log('[SQL]', { text: text.trim().replace(/\s+/g, ' '), duration: `${duration}ms`, rows: res.rowCount })
     }
     return res
-  } catch (error) {
+  } catch (error: any) {
+    if (retries > 0 && (error.message?.includes('timeout') || error.message?.includes('Connection terminated'))) {
+      console.warn('[SQL Reintentando consulta por timeout]:', error.message)
+      await new Promise(r => setTimeout(r, 800))
+      return query<T>(text, params, retries - 1)
+    }
     console.error('[SQL Error]', { text, params, error })
     throw error
   }

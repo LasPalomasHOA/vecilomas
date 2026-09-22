@@ -1,5 +1,6 @@
 import type { IncomingMessage, ServerResponse } from 'node:http'
 import { checkDbConnection } from './config/db.ts'
+import { AuthRepository } from './repositories/auth.repository.ts'
 import { HoaRepository } from './repositories/hoa.repository.ts'
 import { AmenitiesRepository } from './repositories/amenities.repository.ts'
 import { AccessRepository } from './repositories/access.repository.ts'
@@ -80,6 +81,43 @@ export default async function handler(req: CustomRequest, res: CustomResponse) {
         timestamp: new Date().toISOString(),
         database: dbHealth,
       })
+    }
+
+    // AUTH - Login & Users
+    if (pathname === '/api/auth/login' && method === 'POST') {
+      const userIdentifier = body.identifier || body.email
+      const password = body.password
+      const role = body.role
+
+      if (!userIdentifier || !password) {
+        return sendJson(400, { success: false, error: 'Usuario y contraseña requeridos' })
+      }
+
+      const result = await AuthRepository.validateCredentials(userIdentifier, password, role)
+      if (!result.success || !result.user) {
+        return sendJson(401, { success: false, error: result.error || 'Credenciales inválidas' })
+      }
+
+      const u = result.user
+      const initials = u.fullName.split(' ').map((w: string) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'U'
+      return sendJson(200, {
+        success: true,
+        data: {
+          id: u.id,
+          name: u.fullName,
+          email: u.email,
+          role: u.role,
+          unit: u.unitNumber,
+          initials,
+          phone: u.phone,
+          condominiumId: u.condominiumId,
+        },
+      })
+    }
+
+    if (pathname === '/api/auth/users' && method === 'GET') {
+      const users = await AuthRepository.getActiveUsers(queryParams.role)
+      return sendJson(200, { success: true, data: users })
     }
 
     // HOA - Condominiums

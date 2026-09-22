@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { AuthUser, UserRole } from '@/types'
 import Ico from '@/components/common/Icons'
+import { authenticateUser, getDemoAccountsForRole, type UserAccount } from '@/services/authService'
 
 interface LoginFormProps {
   role: UserRole
@@ -44,28 +45,42 @@ const ROLE_DETAILS: Record<
 
 export function LoginForm({ role, onBack, onLogin, glass = false }: LoginFormProps) {
   const config = ROLE_DETAILS[role]
-  const [email, setEmail] = useState('')
+  const demoAccounts = getDemoAccountsForRole(role)
+
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [selectedDemoId, setSelectedDemoId] = useState<string | null>(null)
 
-  function handleSubmit(e: React.FormEvent) {
+  function fillDemoAccount(account: UserAccount) {
+    setIdentifier(account.email)
+    setPassword(account.displayPassword)
+    setSelectedDemoId(account.id)
+    setError(null)
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     setLoading(true)
 
-    setTimeout(() => {
-      const fallbackUser: AuthUser = {
-        role,
-        name: email.split('@')[0] || (role === 'admin' ? 'Administrador' : role === 'security' ? 'Guardia' : 'Residente'),
-        email,
-        initials: (email[0] || 'U').toUpperCase(),
-        unit: role === 'resident' ? (email.includes('-') ? email : '101') : undefined,
+    try {
+      const result = await authenticateUser(identifier, password, role)
+
+      if (!result.success || !result.user) {
+        setError(result.error || 'Credenciales inválidas. Por favor verifica tus datos.')
+        setLoading(false)
+        return
       }
-      onLogin(fallbackUser)
+
+      onLogin(result.user)
+    } catch (err: any) {
+      setError(err?.message || 'Error al conectar con el servidor de autenticación.')
+    } finally {
       setLoading(false)
-    }, 200)
+    }
   }
 
   return (
@@ -116,8 +131,9 @@ export function LoginForm({ role, onBack, onLogin, glass = false }: LoginFormPro
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="p-3 bg-red-500/20 border border-red-500/40 rounded-xl text-xs text-red-200 font-medium">
-            {error}
+          <div className="p-3 bg-red-500/15 border border-red-500/35 rounded-xl text-xs text-red-600 dark:text-red-200 font-medium flex items-start gap-2 animate-shake">
+            <span className="shrink-0 mt-0.5">⚠️</span>
+            <span>{error}</span>
           </div>
         )}
 
@@ -127,15 +143,29 @@ export function LoginForm({ role, onBack, onLogin, glass = false }: LoginFormPro
               glass ? 'text-white/90' : 'text-slate-700'
             }`}
           >
-            {role === 'security' ? 'Usuario o Identificador de Caseta' : 'Correo Electrónico / Unidad'}
+            {role === 'security'
+              ? 'Usuario o Identificador de Caseta'
+              : role === 'resident'
+              ? 'Correo Electrónico o Departamento (ej. A-101)'
+              : 'Correo Electrónico o Usuario'}
           </label>
           <div className="relative">
             <input
               type="text"
               required
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              placeholder={role === 'security' ? 'caseta_norte' : 'tu-correo@ejemplo.com'}
+              value={identifier}
+              onChange={e => {
+                setIdentifier(e.target.value)
+                setSelectedDemoId(null)
+                if (error) setError(null)
+              }}
+              placeholder={
+                role === 'security'
+                  ? 'caseta@laspalomas.mx o caseta_norte'
+                  : role === 'resident'
+                  ? 'carlos.mendoza@email.com o A-101'
+                  : 'admin@laspalomas.mx'
+              }
               className={`w-full px-3.5 py-2.5 border rounded-xl text-sm transition-all font-medium focus:outline-none ${
                 glass
                   ? 'bg-white/15 border-white/25 text-white placeholder-white/50 focus:border-white focus:bg-white/25 focus:ring-2 focus:ring-white/20'
@@ -158,7 +188,11 @@ export function LoginForm({ role, onBack, onLogin, glass = false }: LoginFormPro
               type={showPass ? 'text' : 'password'}
               required
               value={password}
-              onChange={e => setPassword(e.target.value)}
+              onChange={e => {
+                setPassword(e.target.value)
+                setSelectedDemoId(null)
+                if (error) setError(null)
+              }}
               placeholder="••••••••"
               className={`w-full px-3.5 py-2.5 border rounded-xl text-sm transition-all font-medium pr-10 focus:outline-none ${
                 glass
@@ -189,7 +223,7 @@ export function LoginForm({ role, onBack, onLogin, glass = false }: LoginFormPro
           }}
         >
           {loading ? (
-            <span>Ingresando...</span>
+            <span>Validando credenciales...</span>
           ) : (
             <>
               <span>Iniciar Sesión como {config.badge}</span>
@@ -198,6 +232,64 @@ export function LoginForm({ role, onBack, onLogin, glass = false }: LoginFormPro
           )}
         </button>
       </form>
+
+      {/* Demo Quick-Fill Accounts */}
+      <div className="pt-2">
+        <div className="flex items-center gap-2 mb-2.5">
+          <span className={`text-[10px] font-mono font-bold uppercase tracking-wider ${
+            glass ? 'text-teal-200/80' : 'text-slate-500'
+          }`}>
+            Cuentas registradas para prueba:
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 gap-1.5">
+          {demoAccounts.map(account => {
+            const isSelected = selectedDemoId === account.id
+            return (
+              <button
+                key={account.id}
+                type="button"
+                onClick={() => fillDemoAccount(account)}
+                className={`w-full text-left p-2.5 rounded-xl border transition-all duration-200 flex items-center justify-between cursor-pointer ${
+                  glass
+                    ? isSelected
+                      ? 'bg-white/25 border-white/40 text-white shadow-sm'
+                      : 'bg-white/10 hover:bg-white/18 border-white/15 text-white/90'
+                    : isSelected
+                    ? 'bg-teal-50/90 border-teal-300 text-teal-950 shadow-xs'
+                    : 'bg-slate-50 hover:bg-slate-100/90 border-slate-200 text-slate-800'
+                }`}
+              >
+                <div className="min-w-0 pr-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-xs font-bold truncate">{account.name}</span>
+                    {account.unit && (
+                      <span className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded bg-teal-100/80 text-teal-800 shrink-0">
+                        {account.unit}
+                      </span>
+                    )}
+                  </div>
+                  <p className={`text-[11px] font-mono truncate mt-0.5 ${
+                    glass ? 'text-white/70' : 'text-slate-500'
+                  }`}>
+                    {account.email} · Clave: <span className="font-semibold text-teal-600 dark:text-teal-300">{account.displayPassword}</span>
+                  </p>
+                </div>
+                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md shrink-0 uppercase tracking-tight ${
+                  isSelected
+                    ? 'bg-[#008080] text-white'
+                    : glass
+                    ? 'bg-white/20 text-white'
+                    : 'bg-slate-200/70 text-slate-700'
+                }`}>
+                  {isSelected ? 'Cargado ✓' : 'Usar'}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
     </div>
   )
 }
