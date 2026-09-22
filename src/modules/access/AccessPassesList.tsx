@@ -430,6 +430,7 @@ export function AccessPassesList({ onNavigateToGenerate }: AccessPassesListProps
       {/* Modal: Vista Previa Detallada del Pase Tipo Boarding Pass */}
       {selectedPass && (
         <Modal
+          isOpen={!!selectedPass}
           title={`Pase Digital — ${selectedPass.visitor}`}
           onClose={() => setSelectedPass(null)}
         >

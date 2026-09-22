@@ -158,7 +158,7 @@ export function ResidentialDirectory() {
 
         <Btn onClick={openCreate} className="font-bold shadow-xs shrink-0 whitespace-nowrap flex items-center justify-center gap-2">
           <Ico n="plus" c="w-4 h-4" />
-          + Registrar Condómino
+          <span>Registrar Condómino</span>
         </Btn>
       </div>
 
@@ -296,7 +296,7 @@ export function ResidentialDirectory() {
                 <tr>
                   <td colSpan={7} className="text-center py-12 text-slate-400 text-sm">
                     {residents.length === 0
-                      ? `Aún no hay condóminos registrados en "${selectedCondominium?.name || 'Las Palomas'}". Haz clic en "+ Registrar Condómino" para dar de alta unidades y residentes en la base de datos.`
+                      ? `Aún no hay condóminos registrados en "${selectedCondominium?.name || 'Las Palomas'}". Haz clic en "Registrar Condómino" para dar de alta unidades y residentes en la base de datos.`
                       : 'No se encontraron residentes con los filtros aplicados.'}
                   </td>
                 </tr>

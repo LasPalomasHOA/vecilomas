@@ -144,7 +144,7 @@ export function AmenityCatalog({
             className="inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#008080] hover:bg-[#006666] text-white font-bold text-xs shadow-xs transition-colors cursor-pointer shrink-0"
           >
             <Ico n="plus" c="w-4 h-4" />
-            <span>+ Nueva Amenidad</span>
+            <span>Nueva Amenidad</span>
           </button>
         </div>
       )}

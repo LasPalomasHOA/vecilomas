@@ -238,7 +238,7 @@ export function ResidentDashboard({ user, onNav }: ResidentDashboardProps) {
                 className="inline-flex items-center gap-1.5 px-3 py-1 sm:py-1.5 rounded-xl bg-teal-500 text-teal-950 font-bold text-[11px] sm:text-xs shadow-sm hover:bg-teal-400 active:scale-95 transition-all cursor-pointer"
               >
                 <Ico n="qr" c="w-3.5 h-3.5 text-teal-950" />
-                <span>+ Pase Express (1-Clic)</span>
+                <span>Pase Express (1-Clic)</span>
               </button>
             </div>
           </div>
