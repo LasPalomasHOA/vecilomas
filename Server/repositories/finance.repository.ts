@@ -42,8 +42,8 @@ export class FinanceRepository {
         fs.description AS concept,
         fs.amount::float AS amount,
         CASE 
-          WHEN fs.status = 'pagada' THEN 'Pagada'
-          WHEN fs.status = 'vencida' THEN 'Vencida'
+          WHEN lower(fs.status) LIKE 'pagad%' THEN 'Pagada'
+          WHEN lower(fs.status) LIKE 'vencid%' THEN 'Vencida'
           ELSE 'Pendiente'
         END AS status,
         CASE 

@@ -41,7 +41,7 @@ export { app }
 export default app
 
 if (!process.env.VERCEL) {
-  const server = app.listen(PORT, async () => {
+  const server = app.listen(Number(PORT), '0.0.0.0', async () => {
     console.log('====================================================')
     console.log(`🚀 VeciLomas API Server corriendo en http://localhost:${PORT}`)
     console.log(`📡 Endpoints API disponibles en http://localhost:${PORT}/api`)

@@ -22,6 +22,13 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 }
 
 export const ApiClient = {
+  // Autenticación Real PostgreSQL
+  auth: {
+    login: (credentials: { identifier?: string; email?: string; password: string; role?: string }) =>
+      request<any>('/auth/login', { method: 'POST', body: JSON.stringify(credentials) }),
+    getUsers: (role?: string) => request<any[]>(`/auth/users${role ? `?role=${role}` : ''}`),
+  },
+
   // HOA & Residentes & Condominios
   hoa: {
     getCondominiums: () => request<any[]>('/hoa/condominiums'),
