@@ -66,7 +66,7 @@ interface DataContextType {
   // Module D: Finance & Maintenance
   fees: FeeStatement[]
   tickets: MaintenanceTicket[]
-  registerFeePayment: (id: string, method?: string) => void
+  registerFeePayment: (id: string | number, method?: string, reference?: string) => Promise<void> | void
   addTicket: (t: Omit<MaintenanceTicket, 'id' | 'date' | 'status'>) => MaintenanceTicket
   updateTicketStatus: (id: string, status: TicketStatus, assignedTo?: string) => void
 }
@@ -490,18 +490,37 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const randCode = Math.random().toString(36).substring(2, 6).toUpperCase()
     const cleanUnit = (b.unit || 'A101').replace(/[^a-zA-Z0-9]/g, '')
     const qrPassCode = `AMN-${cleanUnit}-${randCode}`
+
+    let startDatetime = ''
+    let endDatetime = ''
+    if (b.date && b.time) {
+      const parts = b.time.replace(/hrs/g, '').split(/[–-]/).map(s => s.trim())
+      const startH = parts[0] ? (parts[0].length === 5 ? parts[0] : parts[0].padStart(5, '0')) : '08:00'
+      const endH = parts[1] ? (parts[1].length === 5 ? parts[1] : parts[1].padStart(5, '0')) : '10:00'
+      startDatetime = `${b.date}T${startH}:00`
+      endDatetime = `${b.date}T${endH}:00`
+    } else {
+      startDatetime = new Date().toISOString()
+      endDatetime = new Date(Date.now() + 2 * 3600000).toISOString()
+    }
+
     try {
       await ApiClient.amenities.createBooking({
+        condominiumId: activeCondoId,
         amenityId: b.amenityId || 1,
-        userId: 1,
-        unitId: 1,
-        startDatetime: new Date().toISOString(),
-        endDatetime: new Date(Date.now() + 2 * 3600000).toISOString(),
+        unitNumber: b.unit,
+        residentName: b.resident,
+        date: b.date,
+        time: b.time,
+        startDatetime,
+        endDatetime,
         guestsCount: b.guests || 2,
+        notes: b.specialRequests,
       })
       const list = await ApiClient.amenities.getBookings(undefined, activeCondoId)
       if (Array.isArray(list)) setBookings(list)
     } catch (err) {
+      console.warn('Error creating booking on API:', err)
       const newId = bookings.length > 0 ? Math.max(...bookings.map(x => x.id)) + 1 : 1
       const newBooking: Booking = { id: newId, status: 'Pendiente', qrPassCode, createdAt: new Date().toISOString(), ...b }
       setBookings(prev => [newBooking, ...prev])
@@ -664,11 +683,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
   }
 
   // ── Handlers D: Finance ────────────────────────────────────────────────────
-  function registerFeePayment(id: string, method: string = 'Transferencia SPEI') {
+  async function registerFeePayment(id: string | number, method: string = 'Transferencia SPEI', reference?: string) {
     const today = new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })
+    
+    // Optimistic UI update
     setFees(prev =>
-      prev.map(f => (f.id === id ? { ...f, status: 'Pagada', date: today, paymentMethod: method } : f))
+      prev.map(f => (String(f.id) === String(id) ? { ...f, status: 'Pagada', date: today, paymentMethod: method } : f))
     )
+
+    try {
+      await ApiClient.finance.registerPayment({
+        feeStatementId: id,
+        paymentMethod: method,
+        referenceNumber: reference,
+      })
+      const list = await ApiClient.finance.getFees()
+      if (Array.isArray(list)) setFees(list)
+    } catch (err) {
+      console.warn('Error saving payment to PostgreSQL:', err)
+    }
   }
 
   function addTicket(t: Omit<MaintenanceTicket, 'id' | 'date' | 'status'>) {

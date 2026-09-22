@@ -33,11 +33,14 @@ export class FinanceRepository {
   static async getFeeStatements(condoId?: string | number, unitId?: string | number): Promise<FeeStatementListItem[]> {
     const sql = `
       SELECT 
-        fs.id,
+        fs.id::text,
         un.unit_number AS unit,
-        COALESCE(u.full_name, 'Propietario / Sin asignar') AS resident,
+        COALESCE(
+          (SELECT u.full_name FROM vecilomas.users u WHERE u.unit_id = un.id LIMIT 1),
+          'Propietario / Sin asignar'
+        ) AS resident,
         fs.description AS concept,
-        fs.amount,
+        fs.amount::float AS amount,
         CASE 
           WHEN fs.status = 'pagada' THEN 'Pagada'
           WHEN fs.status = 'vencida' THEN 'Vencida'
@@ -49,15 +52,14 @@ export class FinanceRepository {
         END AS date,
         to_char(fs.due_date, 'DD Mon YYYY') AS "dueDate",
         CASE 
-          WHEN p.payment_method = 'spei' THEN 'Transferencia SPEI'
-          WHEN p.payment_method = 'tarjeta_debito' THEN 'Tarjeta de Débito'
-          WHEN p.payment_method = 'tarjeta_credito' THEN 'Tarjeta de Crédito'
-          WHEN p.payment_method = 'efectivo_oficina' THEN 'Efectivo en Oficina'
-          ELSE NULL
+          WHEN p.payment_method IN ('spei', 'Transferencia SPEI') THEN 'Transferencia SPEI'
+          WHEN p.payment_method IN ('tarjeta_debito', 'tarjeta_credito', 'Tarjeta de Débito / Crédito') THEN 'Tarjeta de Débito / Crédito'
+          WHEN p.payment_method IN ('efectivo_oficina', 'Efectivo en Administración') THEN 'Efectivo en Administración'
+          WHEN p.payment_method = 'cheque' THEN 'Cheque'
+          ELSE p.payment_method
         END AS "paymentMethod"
       FROM vecilomas.fee_statements fs
       JOIN vecilomas.units un ON fs.unit_id = un.id
-      LEFT JOIN vecilomas.users u ON un.id = u.unit_id AND u.role = 'resident'
       LEFT JOIN LATERAL (
         SELECT payment_method, paid_at 
         FROM vecilomas.payments 
@@ -67,7 +69,7 @@ export class FinanceRepository {
       ) p ON TRUE
       WHERE ($1::integer IS NULL OR un.condominium_id = $1::integer)
         AND ($2::integer IS NULL OR fs.unit_id = $2::integer)
-      ORDER BY fs.due_date DESC;
+      ORDER BY fs.due_date DESC, fs.id DESC;
     `
     const { rows } = await query(sql, [condoId ? Number(condoId) : null, unitId ? Number(unitId) : null])
     return rows
@@ -81,15 +83,49 @@ export class FinanceRepository {
    */
   static async registerPayment(data: {
     feeStatementId: string | number
-    userId: string | number
-    amountPaid: number
-    paymentMethod: PaymentMethod
+    userId?: string | number
+    amountPaid?: number
+    paymentMethod?: string
     referenceNumber?: string
     voucherUrl?: string
     verifiedByUserId?: string | number
   }) {
+    const feeId = Number(data.feeStatementId)
+
     return await withTransaction(async (client) => {
-      // 1. Insertar pago
+      // 1. Obtener estado de cuenta
+      const feeRes = await client.query(
+        'SELECT id, unit_id, amount FROM vecilomas.fee_statements WHERE id = $1',
+        [feeId]
+      )
+      if (!feeRes.rows[0]) throw new Error(`Estado de cuenta con ID ${feeId} no encontrado.`)
+      const fee = feeRes.rows[0]
+
+      // 2. Resolver user_id
+      let userId: number | null = null
+      if (data.userId) {
+        const uCheck = await client.query('SELECT id FROM vecilomas.users WHERE id = $1 LIMIT 1;', [Number(data.userId)])
+        if (uCheck.rows[0]) userId = uCheck.rows[0].id
+      }
+      if (!userId && fee.unit_id) {
+        const uRes = await client.query('SELECT id FROM vecilomas.users WHERE unit_id = $1 LIMIT 1;', [fee.unit_id])
+        if (uRes.rows[0]) userId = uRes.rows[0].id
+      }
+      if (!userId) {
+        const uFallback = await client.query(`SELECT id FROM vecilomas.users WHERE role IN ('resident', 'admin') LIMIT 1;`)
+        userId = uFallback.rows[0]?.id || 1
+      }
+
+      // 3. Normalizar método de pago
+      let method = data.paymentMethod || 'spei'
+      if (method.includes('SPEI') || method.includes('Transferencia')) method = 'spei'
+      else if (method.includes('Tarjeta') || method.includes('Débito') || method.includes('Crédito')) method = 'tarjeta_debito'
+      else if (method.includes('Efectivo')) method = 'efectivo_oficina'
+      else if (method.includes('Cheque')) method = 'cheque'
+
+      const amountPaid = data.amountPaid !== undefined ? Number(data.amountPaid) : Number(fee.amount)
+
+      // 4. Insertar pago
       const insertPaymentSql = `
         INSERT INTO vecilomas.payments (
           fee_statement_id, user_id, amount_paid, payment_method, reference_number, voucher_url, verified_by_user_id, verified_at, status, paid_at
@@ -97,35 +133,34 @@ export class FinanceRepository {
         RETURNING *;
       `
       const paymentRes = await client.query(insertPaymentSql, [
-        Number(data.feeStatementId),
-        Number(data.userId),
-        data.amountPaid,
-        data.paymentMethod,
+        feeId,
+        userId,
+        amountPaid,
+        method,
         data.referenceNumber || null,
         data.voucherUrl || null,
         data.verifiedByUserId ? Number(data.verifiedByUserId) : null,
       ])
 
-      // 2. Actualizar estado de cuenta a pagada
+      // 5. Actualizar estado de cuenta a pagada
       const updateFeeSql = `
         UPDATE vecilomas.fee_statements
         SET status = 'pagada'
         WHERE id = $1
         RETURNING unit_id;
       `
-      const feeRes = await client.query(updateFeeSql, [Number(data.feeStatementId)])
-      const unitId = feeRes.rows[0]?.unit_id
+      await client.query(updateFeeSql, [feeId])
 
-      // 3. Revisar si quedan cuotas vencidas en la unidad
-      if (unitId) {
+      // 6. Revisar si quedan cuotas vencidas en la unidad
+      if (fee.unit_id) {
         const checkPendingSql = `
           SELECT COUNT(*) as pending_count 
           FROM vecilomas.fee_statements 
           WHERE unit_id = $1 AND status = 'vencida';
         `
-        const checkRes = await client.query(checkPendingSql, [unitId])
+        const checkRes = await client.query(checkPendingSql, [fee.unit_id])
         if (Number(checkRes.rows[0]?.pending_count) === 0) {
-          await client.query(`UPDATE vecilomas.units SET status = 'al_corriente' WHERE id = $1;`, [unitId])
+          await client.query(`UPDATE vecilomas.units SET status = 'al_corriente' WHERE id = $1;`, [fee.unit_id])
         }
       }
 

@@ -588,17 +588,17 @@ var AmenitiesRepository = class {
     return rows[0];
   }
   /**
-   * Lista de reservaciones con datos de la amenidad, residente y unidad en 1 solo JOIN
+   * Lista de reservaciones con datos de la amenidad, residente y unidad
    */
   static async getBookings(condoId, unitId) {
     const sql = `
       SELECT 
         b.id,
         b.amenity_id AS "amenityId",
-        a.name AS amenity,
-        u.full_name AS resident,
-        un.unit_number AS unit,
-        to_char(b.start_datetime, 'DD Mon YYYY') AS date,
+        COALESCE(a.name, 'Amenidad') AS amenity,
+        COALESCE(u.full_name, 'Residente') AS resident,
+        COALESCE(un.unit_number, 'S/N') AS unit,
+        to_char(b.start_datetime, 'YYYY-MM-DD') AS date,
         concat(to_char(b.start_datetime, 'HH24:MI'), ' \u2013 ', to_char(b.end_datetime, 'HH24:MI')) AS time,
         CASE 
           WHEN b.status = 'aprobada' THEN 'Aprobada'
@@ -611,12 +611,14 @@ var AmenitiesRepository = class {
           WHEN b.total_cost > 0 THEN concat('$', b.total_cost, ' MXN')
           ELSE 'Sin costo'
         END AS cost,
+        COALESCE(b.notes, '') AS "specialRequests",
+        b.created_at AS "createdAt",
         b.start_datetime AS "rawStart",
         b.end_datetime AS "rawEnd"
       FROM vecilomas.bookings b
-      JOIN vecilomas.amenities a ON b.amenity_id = a.id
-      JOIN vecilomas.users u ON b.user_id = u.id
-      JOIN vecilomas.units un ON b.unit_id = un.id
+      LEFT JOIN vecilomas.amenities a ON b.amenity_id = a.id
+      LEFT JOIN vecilomas.users u ON b.user_id = u.id
+      LEFT JOIN vecilomas.units un ON b.unit_id = un.id
       WHERE ($1::integer IS NULL OR a.condominium_id = $1::integer)
         AND ($2::integer IS NULL OR b.unit_id = $2::integer)
       ORDER BY b.start_datetime DESC;
@@ -650,43 +652,107 @@ var AmenitiesRepository = class {
    * Crea una reservación de forma segura dentro de una transacción
    */
   static async createBooking(data) {
+    const amenityId = Number(data.amenityId) || 1;
+    const condoId = Number(data.condominiumId) || 1;
     return await withTransaction(async (client) => {
       const amenityRes = await client.query(
-        "SELECT capacity, requires_approval, cost_amount FROM vecilomas.amenities WHERE id = $1",
-        [data.amenityId]
+        "SELECT id, capacity, requires_approval, cost_amount, condominium_id FROM vecilomas.amenities WHERE id = $1",
+        [amenityId]
       );
       const amenity = amenityRes.rows[0];
-      if (!amenity) throw new Error("Amenidad no encontrada");
-      if (data.guestsCount > amenity.capacity) {
-        throw new Error(`El n\xFAmero de invitados (${data.guestsCount}) excede el aforo m\xE1ximo (${amenity.capacity}).`);
+      if (!amenity) throw new Error(`Amenidad con ID ${amenityId} no encontrada.`);
+      const guestsCount = Number(data.guestsCount || data.guests || 2);
+      if (guestsCount > amenity.capacity) {
+        throw new Error(`El n\xFAmero de invitados (${guestsCount}) excede el aforo m\xE1ximo (${amenity.capacity}).`);
       }
+      let unitId = null;
+      if (data.unitId) {
+        const uCheck = await client.query("SELECT id FROM vecilomas.units WHERE id = $1 LIMIT 1;", [Number(data.unitId)]);
+        if (uCheck.rows[0]) unitId = uCheck.rows[0].id;
+      }
+      if (!unitId && data.unitNumber) {
+        const uRes = await client.query(
+          `SELECT id FROM vecilomas.units WHERE (unit_number = $1 OR unit_number = $2 OR unit_number ILIKE $3) LIMIT 1;`,
+          [data.unitNumber, data.unitNumber.replace(/[^a-zA-Z0-9]/g, ""), `%${data.unitNumber}%`]
+        );
+        if (uRes.rows[0]) unitId = uRes.rows[0].id;
+      }
+      if (!unitId) {
+        const uFirst = await client.query("SELECT id FROM vecilomas.units WHERE condominium_id = $1 LIMIT 1;", [condoId]);
+        if (uFirst.rows[0]) unitId = uFirst.rows[0].id;
+      }
+      if (!unitId) {
+        const newU = await client.query(
+          `INSERT INTO vecilomas.units (condominium_id, unit_number, status) VALUES ($1, $2, 'al_corriente') RETURNING id;`,
+          [condoId, data.unitNumber || "101"]
+        );
+        unitId = newU.rows[0].id;
+      }
+      let userId = null;
+      if (data.userId) {
+        const userCheck = await client.query("SELECT id FROM vecilomas.users WHERE id = $1 LIMIT 1;", [Number(data.userId)]);
+        if (userCheck.rows[0]) userId = userCheck.rows[0].id;
+      }
+      if (!userId && data.residentName) {
+        const userRes = await client.query("SELECT id FROM vecilomas.users WHERE full_name ILIKE $1 LIMIT 1;", [`%${data.residentName}%`]);
+        if (userRes.rows[0]) userId = userRes.rows[0].id;
+      }
+      if (!userId) {
+        const userFallback = await client.query(`SELECT id FROM vecilomas.users WHERE role IN ('resident', 'admin') LIMIT 1;`);
+        userId = userFallback.rows[0]?.id || 1;
+      }
+      let startDatetime = data.startDatetime;
+      let endDatetime = data.endDatetime;
+      if ((!startDatetime || !endDatetime) && data.date && data.time) {
+        const parts = data.time.replace(/hrs/g, "").split(/[–-]/).map((s) => s.trim());
+        const startH = parts[0] ? parts[0].length === 5 ? parts[0] : parts[0].padStart(5, "0") : "08:00";
+        const endH = parts[1] ? parts[1].length === 5 ? parts[1] : parts[1].padStart(5, "0") : "10:00";
+        startDatetime = `${data.date}T${startH}:00`;
+        endDatetime = `${data.date}T${endH}:00`;
+      }
+      if (!startDatetime) startDatetime = (/* @__PURE__ */ new Date()).toISOString();
+      if (!endDatetime) endDatetime = new Date(Date.now() + 2 * 36e5).toISOString();
       const conflictRes = await client.query(
         `SELECT id FROM vecilomas.bookings 
          WHERE amenity_id = $1 AND status = 'aprobada'
            AND tstzrange(start_datetime, end_datetime) && tstzrange($2::timestamptz, $3::timestamptz)`,
-        [data.amenityId, data.startDatetime, data.endDatetime]
+        [amenityId, startDatetime, endDatetime]
       );
       if (conflictRes.rows.length > 0) {
-        throw new Error("El horario ya no est\xE1 disponible.");
+        throw new Error("El horario seleccionado ya se encuentra ocupado por otra reservaci\xF3n aprobada.");
       }
       const initialStatus = amenity.requires_approval ? "pendiente" : "aprobada";
-      const cost = data.totalCost !== void 0 ? data.totalCost : amenity.cost_amount;
+      const cost = data.totalCost !== void 0 ? data.totalCost : Number(amenity.cost_amount || 0);
+      const notes = data.notes || data.specialRequests || null;
       const insertSql = `
         INSERT INTO vecilomas.bookings (
           amenity_id, user_id, unit_id, start_datetime, end_datetime, guests_count, total_cost, status, notes, created_at
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())
-        RETURNING *;
+        ) VALUES ($1, $2, $3, $4::timestamptz, $5::timestamptz, $6, $7, $8, $9, NOW())
+        RETURNING 
+          id,
+          amenity_id AS "amenityId",
+          to_char(start_datetime, 'YYYY-MM-DD') AS date,
+          concat(to_char(start_datetime, 'HH24:MI'), ' \u2013 ', to_char(end_datetime, 'HH24:MI')) AS time,
+          CASE 
+            WHEN status = 'aprobada' THEN 'Aprobada'
+            WHEN status = 'pendiente' THEN 'Pendiente'
+            WHEN status = 'rechazada' THEN 'Rechazada'
+            ELSE 'Cancelada'
+          END AS status,
+          guests_count AS guests,
+          CASE WHEN total_cost > 0 THEN concat('$', total_cost, ' MXN') ELSE 'Sin costo' END AS cost,
+          created_at AS "createdAt";
       `;
       const res = await client.query(insertSql, [
-        data.amenityId,
-        Number(data.userId) || 1,
-        Number(data.unitId) || 1,
-        data.startDatetime,
-        data.endDatetime,
-        data.guestsCount,
+        amenityId,
+        userId,
+        unitId,
+        startDatetime,
+        endDatetime,
+        guestsCount,
         cost,
         initialStatus,
-        data.notes || null
+        notes
       ]);
       return res.rows[0];
     });
@@ -978,11 +1044,14 @@ var FinanceRepository = class {
   static async getFeeStatements(condoId, unitId) {
     const sql = `
       SELECT 
-        fs.id,
+        fs.id::text,
         un.unit_number AS unit,
-        COALESCE(u.full_name, 'Propietario / Sin asignar') AS resident,
+        COALESCE(
+          (SELECT u.full_name FROM vecilomas.users u WHERE u.unit_id = un.id LIMIT 1),
+          'Propietario / Sin asignar'
+        ) AS resident,
         fs.description AS concept,
-        fs.amount,
+        fs.amount::float AS amount,
         CASE 
           WHEN fs.status = 'pagada' THEN 'Pagada'
           WHEN fs.status = 'vencida' THEN 'Vencida'
@@ -994,15 +1063,14 @@ var FinanceRepository = class {
         END AS date,
         to_char(fs.due_date, 'DD Mon YYYY') AS "dueDate",
         CASE 
-          WHEN p.payment_method = 'spei' THEN 'Transferencia SPEI'
-          WHEN p.payment_method = 'tarjeta_debito' THEN 'Tarjeta de D\xE9bito'
-          WHEN p.payment_method = 'tarjeta_credito' THEN 'Tarjeta de Cr\xE9dito'
-          WHEN p.payment_method = 'efectivo_oficina' THEN 'Efectivo en Oficina'
-          ELSE NULL
+          WHEN p.payment_method IN ('spei', 'Transferencia SPEI') THEN 'Transferencia SPEI'
+          WHEN p.payment_method IN ('tarjeta_debito', 'tarjeta_credito', 'Tarjeta de D\xE9bito / Cr\xE9dito') THEN 'Tarjeta de D\xE9bito / Cr\xE9dito'
+          WHEN p.payment_method IN ('efectivo_oficina', 'Efectivo en Administraci\xF3n') THEN 'Efectivo en Administraci\xF3n'
+          WHEN p.payment_method = 'cheque' THEN 'Cheque'
+          ELSE p.payment_method
         END AS "paymentMethod"
       FROM vecilomas.fee_statements fs
       JOIN vecilomas.units un ON fs.unit_id = un.id
-      LEFT JOIN vecilomas.users u ON un.id = u.unit_id AND u.role = 'resident'
       LEFT JOIN LATERAL (
         SELECT payment_method, paid_at 
         FROM vecilomas.payments 
@@ -1012,7 +1080,7 @@ var FinanceRepository = class {
       ) p ON TRUE
       WHERE ($1::integer IS NULL OR un.condominium_id = $1::integer)
         AND ($2::integer IS NULL OR fs.unit_id = $2::integer)
-      ORDER BY fs.due_date DESC;
+      ORDER BY fs.due_date DESC, fs.id DESC;
     `;
     const { rows } = await query(sql, [condoId ? Number(condoId) : null, unitId ? Number(unitId) : null]);
     return rows;
@@ -1024,7 +1092,33 @@ var FinanceRepository = class {
    * 3. Verifica si la unidad ya no tiene adeudos vencidos y la pone 'al_corriente'
    */
   static async registerPayment(data) {
+    const feeId = Number(data.feeStatementId);
     return await withTransaction(async (client) => {
+      const feeRes = await client.query(
+        "SELECT id, unit_id, amount FROM vecilomas.fee_statements WHERE id = $1",
+        [feeId]
+      );
+      if (!feeRes.rows[0]) throw new Error(`Estado de cuenta con ID ${feeId} no encontrado.`);
+      const fee = feeRes.rows[0];
+      let userId = null;
+      if (data.userId) {
+        const uCheck = await client.query("SELECT id FROM vecilomas.users WHERE id = $1 LIMIT 1;", [Number(data.userId)]);
+        if (uCheck.rows[0]) userId = uCheck.rows[0].id;
+      }
+      if (!userId && fee.unit_id) {
+        const uRes = await client.query("SELECT id FROM vecilomas.users WHERE unit_id = $1 LIMIT 1;", [fee.unit_id]);
+        if (uRes.rows[0]) userId = uRes.rows[0].id;
+      }
+      if (!userId) {
+        const uFallback = await client.query(`SELECT id FROM vecilomas.users WHERE role IN ('resident', 'admin') LIMIT 1;`);
+        userId = uFallback.rows[0]?.id || 1;
+      }
+      let method = data.paymentMethod || "spei";
+      if (method.includes("SPEI") || method.includes("Transferencia")) method = "spei";
+      else if (method.includes("Tarjeta") || method.includes("D\xE9bito") || method.includes("Cr\xE9dito")) method = "tarjeta_debito";
+      else if (method.includes("Efectivo")) method = "efectivo_oficina";
+      else if (method.includes("Cheque")) method = "cheque";
+      const amountPaid = data.amountPaid !== void 0 ? Number(data.amountPaid) : Number(fee.amount);
       const insertPaymentSql = `
         INSERT INTO vecilomas.payments (
           fee_statement_id, user_id, amount_paid, payment_method, reference_number, voucher_url, verified_by_user_id, verified_at, status, paid_at
@@ -1032,10 +1126,10 @@ var FinanceRepository = class {
         RETURNING *;
       `;
       const paymentRes = await client.query(insertPaymentSql, [
-        Number(data.feeStatementId),
-        Number(data.userId),
-        data.amountPaid,
-        data.paymentMethod,
+        feeId,
+        userId,
+        amountPaid,
+        method,
         data.referenceNumber || null,
         data.voucherUrl || null,
         data.verifiedByUserId ? Number(data.verifiedByUserId) : null
@@ -1046,17 +1140,16 @@ var FinanceRepository = class {
         WHERE id = $1
         RETURNING unit_id;
       `;
-      const feeRes = await client.query(updateFeeSql, [Number(data.feeStatementId)]);
-      const unitId = feeRes.rows[0]?.unit_id;
-      if (unitId) {
+      await client.query(updateFeeSql, [feeId]);
+      if (fee.unit_id) {
         const checkPendingSql = `
           SELECT COUNT(*) as pending_count 
           FROM vecilomas.fee_statements 
           WHERE unit_id = $1 AND status = 'vencida';
         `;
-        const checkRes = await client.query(checkPendingSql, [unitId]);
+        const checkRes = await client.query(checkPendingSql, [fee.unit_id]);
         if (Number(checkRes.rows[0]?.pending_count) === 0) {
-          await client.query(`UPDATE vecilomas.units SET status = 'al_corriente' WHERE id = $1;`, [unitId]);
+          await client.query(`UPDATE vecilomas.units SET status = 'al_corriente' WHERE id = $1;`, [fee.unit_id]);
         }
       }
       return paymentRes.rows[0];

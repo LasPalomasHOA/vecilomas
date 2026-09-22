@@ -12,11 +12,18 @@ export function FeeControl() {
   const [filterStatus, setFilterStatus] = useState<'all' | FeeStatus>('all')
   const [modalPayment, setModalPayment] = useState<FeeStatement | null>(null)
   const [payMethod, setPayMethod] = useState('Transferencia SPEI')
+  const [refNumber, setRefNumber] = useState('')
   const [toastMsg, setToastMsg] = useState<string | null>(null)
 
-  const collected = fees.filter(f => f.status === 'Pagada').reduce((s, f) => s + f.amount, 0)
-  const pending = fees.filter(f => f.status === 'Pendiente').reduce((s, f) => s + f.amount, 0)
-  const overdueTotal = fees.filter(f => f.status === 'Vencida').reduce((s, f) => s + f.amount, 0)
+  const collected = fees
+    .filter(f => f.status === 'Pagada')
+    .reduce((s, f) => s + (Number(f.amount) || 0), 0)
+  const pending = fees
+    .filter(f => f.status === 'Pendiente')
+    .reduce((s, f) => s + (Number(f.amount) || 0), 0)
+  const overdueTotal = fees
+    .filter(f => f.status === 'Vencida')
+    .reduce((s, f) => s + (Number(f.amount) || 0), 0)
   const totalBilled = collected + pending + overdueTotal
   const collectionRate = totalBilled > 0 ? Math.round((collected / totalBilled) * 100) : 0
 
@@ -24,9 +31,11 @@ export function FeeControl() {
     e.preventDefault()
     if (!modalPayment) return
 
-    registerFeePayment(modalPayment.id, payMethod)
-    setToastMsg(`Pago registrado con éxito para la unidad ${modalPayment.unit} por $${modalPayment.amount.toLocaleString()} MXN.`)
+    const amountNum = Number(modalPayment.amount) || 0
+    registerFeePayment(modalPayment.id, payMethod, refNumber)
+    setToastMsg(`Pago registrado con éxito para la unidad ${modalPayment.unit} por $${amountNum.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN.`)
     setModalPayment(null)
+    setRefNumber('')
     setTimeout(() => setToastMsg(null), 4000)
   }
 
@@ -254,6 +263,8 @@ export function FeeControl() {
                 Referencia / Número de Rastreo
               </label>
               <input
+                value={refNumber}
+                onChange={e => setRefNumber(e.target.value)}
                 placeholder="Ej. SPEI-8849204829"
                 className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/80 border border-slate-200/80 focus:bg-white focus:border-teal-500 focus:outline-none transition-all font-mono"
               />

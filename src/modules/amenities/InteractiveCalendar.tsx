@@ -25,6 +25,27 @@ const DAYS_AHEAD = [
   { day: 'Mar', num: '08', fullDate: '2026-09-08', label: '8 Sep' },
 ]
 
+function checkSlotOverlap(slot: string, bookingTime: string): boolean {
+  if (!bookingTime) return false
+  const slotParts = slot.replace(/hrs/g, '').split(/[–-]/).map(s => s.trim())
+  const bookParts = bookingTime.replace(/hrs/g, '').split(/[–-]/).map(s => s.trim())
+  if (slotParts.length < 2 || bookParts.length < 2) return false
+
+  const sStart = slotParts[0].length === 5 ? slotParts[0] : slotParts[0].padStart(5, '0')
+  const sEnd = slotParts[1].length === 5 ? slotParts[1] : slotParts[1].padStart(5, '0')
+  const bStart = bookParts[0].length === 5 ? bookParts[0] : bookParts[0].padStart(5, '0')
+  const bEnd = bookParts[1].length === 5 ? bookParts[1] : bookParts[1].padStart(5, '0')
+
+  // Interval overlap: bStart < sEnd && bEnd > sStart
+  return bStart < sEnd && bEnd > sStart
+}
+
+function normalizeDate(d: string | undefined): string {
+  if (!d) return ''
+  if (/^\d{4}-\d{2}-\d{2}/.test(d)) return d.substring(0, 10)
+  return d
+}
+
 export function InteractiveCalendar({
   currentUnit = 'A-101',
   currentResident = 'Carlos Mendoza Ruiz',
@@ -62,7 +83,8 @@ export function InteractiveCalendar({
     const matchAmenity =
       (b.amenity && b.amenity.toLowerCase().includes(activeAmenity.name?.toLowerCase() || '')) ||
       b.amenityId === activeAmenity.id
-    const matchDate = b.date === selectedDate || b.date.includes(selectedDate.split('-')[2] || '999')
+    const bDate = normalizeDate(b.date)
+    const matchDate = bDate === selectedDate || (b.date && b.date.includes(selectedDate))
     return matchAmenity && matchDate && b.status !== 'Cancelada' && b.status !== 'Rechazada'
   })
 
@@ -233,7 +255,7 @@ export function InteractiveCalendar({
             {/* Slots Grid */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {TIME_SLOTS.map(slot => {
-                const booked = dayBookings.find(b => b.time.includes(slot.split(' – ')[0]))
+                const booked = dayBookings.find(b => checkSlotOverlap(slot, b.time))
                 const isOccupied = !!booked || !activeAmenity.available
 
                 return (
