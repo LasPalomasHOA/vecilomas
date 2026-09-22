@@ -1,10 +1,80 @@
 import * as XLSX from 'xlsx'
-import type { FeeStatement, MaintenanceTicket } from '@/types/finance'
+import type { FeeStatement, MaintenanceTicket, PaymentTransaction } from '@/types/finance'
 
 export interface FinanceExportData {
   fees: FeeStatement[]
+  payments?: PaymentTransaction[]
   tickets?: MaintenanceTicket[]
   condominiumName?: string
+}
+
+/**
+ * Exporta el reporte de Transacciones y Pagos Reales a Excel (.xlsx)
+ */
+export function exportPaymentsToExcel(payments: PaymentTransaction[], condominiumName = 'Condominio Residencial Las Palomas') {
+  const wb = XLSX.utils.book_new()
+  const today = new Date().toLocaleDateString('es-MX', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+
+  // Hoja 1: Transacciones y Pagos
+  const paymentsRows = payments.map((p, idx) => ({
+    'No.': idx + 1,
+    'ID Pago': p.id,
+    'Unidad': p.unit || 'S/N',
+    'Condómino / Pagador': p.resident || 'Propietario',
+    'Concepto Liquidado': p.concept,
+    'Monto Pagado ($ MXN)': Number(p.amountPaid) || 0,
+    'Método de Pago': p.paymentMethod,
+    'Referencia / Folio Bancario': p.referenceNumber || '—',
+    'Fecha y Hora': p.paidAt || '—',
+    'Estatus': (p.status || 'Aprobado').toUpperCase(),
+    'Validado Por': p.verifiedBy || 'Sistema',
+  }))
+
+  const wsPayments = XLSX.utils.json_to_sheet(paymentsRows)
+  wsPayments['!cols'] = [
+    { wch: 6 },
+    { wch: 12 },
+    { wch: 12 },
+    { wch: 28 },
+    { wch: 38 },
+    { wch: 22 },
+    { wch: 24 },
+    { wch: 28 },
+    { wch: 22 },
+    { wch: 14 },
+    { wch: 24 },
+  ]
+  XLSX.utils.book_append_sheet(wb, wsPayments, 'Transacciones de Pago')
+
+  // Hoja 2: Resumen
+  const totalAmount = payments.reduce((s, p) => s + (Number(p.amountPaid) || 0), 0)
+  const speiCount = payments.filter(p => p.paymentMethod.includes('SPEI') || p.paymentMethod.includes('Transferencia')).length
+  const cardCount = payments.filter(p => p.paymentMethod.includes('Tarjeta')).length
+  const cashCount = payments.filter(p => p.paymentMethod.includes('Efectivo')).length
+
+  const summaryRows = [
+    { 'RESUMEN DE COBRANZA': 'Condominio', 'DETALLE': condominiumName },
+    { 'RESUMEN DE COBRANZA': 'Fecha de Emisión del Reporte', 'DETALLE': today },
+    { 'RESUMEN DE COBRANZA': 'Total de Pagos Registrados', 'DETALLE': payments.length },
+    { 'RESUMEN DE COBRANZA': 'Monto Total Ingresado', 'DETALLE': `$${totalAmount.toLocaleString('es-MX', { minimumFractionDigits: 2 })} MXN` },
+    { 'RESUMEN DE COBRANZA': 'Pagos vía SPEI / Transferencia', 'DETALLE': speiCount },
+    { 'RESUMEN DE COBRANZA': 'Pagos vía Tarjeta Débito/Crédito', 'DETALLE': cardCount },
+    { 'RESUMEN DE COBRANZA': 'Pagos en Efectivo / Oficina', 'DETALLE': cashCount },
+  ]
+  const wsSummary = XLSX.utils.json_to_sheet(summaryRows)
+  wsSummary['!cols'] = [{ wch: 32 }, { wch: 40 }]
+  XLSX.utils.book_append_sheet(wb, wsSummary, 'Resumen de Ingresos')
+
+  const dateStr = new Date().toISOString().slice(0, 10)
+  const fileName = `Reporte_Pagos_Reales_${dateStr}.xlsx`
+  XLSX.writeFile(wb, fileName)
+  return fileName
 }
 
 /**
@@ -149,7 +219,40 @@ export function exportFullFinanceReportToExcel(data: FinanceExportData) {
   wsFees['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 26 }, { wch: 36 }, { wch: 16 }, { wch: 14 }, { wch: 16 }, { wch: 16 }, { wch: 22 }]
   XLSX.utils.book_append_sheet(wb, wsFees, 'Estado de Cuotas')
 
-  // 3. Hoja de Tickets (si existen)
+  // 3. Hoja de Pagos Reales / Transacciones Bancarias (si existen)
+  const payments = data.payments || []
+  if (payments.length > 0) {
+    const paymentsRows = payments.map((p, idx) => ({
+      'No.': idx + 1,
+      'ID Pago': p.id,
+      'Unidad': p.unit || 'S/N',
+      'Condómino / Pagador': p.resident || 'Propietario',
+      'Concepto Liquidado': p.concept,
+      'Monto Pagado ($ MXN)': Number(p.amountPaid) || 0,
+      'Método de Pago': p.paymentMethod,
+      'Referencia / Folio SPEI': p.referenceNumber || '—',
+      'Fecha y Hora': p.paidAt || '—',
+      'Estatus': (p.status || 'Aprobado').toUpperCase(),
+      'Validado Por': p.verifiedBy || 'Sistema',
+    }))
+    const wsPayments = XLSX.utils.json_to_sheet(paymentsRows)
+    wsPayments['!cols'] = [
+      { wch: 6 },
+      { wch: 12 },
+      { wch: 12 },
+      { wch: 28 },
+      { wch: 38 },
+      { wch: 22 },
+      { wch: 24 },
+      { wch: 28 },
+      { wch: 22 },
+      { wch: 14 },
+      { wch: 24 },
+    ]
+    XLSX.utils.book_append_sheet(wb, wsPayments, 'Transacciones de Pago')
+  }
+
+  // 4. Hoja de Tickets (si existen)
   if (tickets.length > 0) {
     const ticketsRows = tickets.map(t => ({
       'Folio': t.id,

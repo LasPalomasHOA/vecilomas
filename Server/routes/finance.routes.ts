@@ -4,6 +4,7 @@ import { FinanceController } from '../controllers/finance.controller.ts'
 const router = Router()
 
 router.get('/fees', FinanceController.getFees)
+router.get('/payments', FinanceController.getPayments)
 router.post('/payments', FinanceController.registerPayment)
 
 router.get('/tickets', FinanceController.getTickets)

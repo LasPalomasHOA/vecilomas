@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect, useCallback, type React
 import type { Resident, Notice, CommunityDocument, UserRolePermission } from '@/types/hoa'
 import type { Amenity, Booking, BookingStatus } from '@/types/amenities'
 import type { AccessPass, VisitRecord, QRValidationResult, VisitType } from '@/types/access'
-import type { FeeStatement, MaintenanceTicket, TicketStatus } from '@/types/finance'
+import type { FeeStatement, MaintenanceTicket, TicketStatus, PaymentTransaction } from '@/types/finance'
 import { ApiClient } from '@/services/apiClient'
 
 export interface Condominium {
@@ -65,12 +65,35 @@ interface DataContextType {
 
   // Module D: Finance & Maintenance
   fees: FeeStatement[]
+  payments: PaymentTransaction[]
   tickets: MaintenanceTicket[]
   registerFeePayment: (id: string | number, method?: string, reference?: string) => Promise<void> | void
   addTicket: (t: Omit<MaintenanceTicket, 'id' | 'date' | 'status'> & { id?: string; date?: string; status?: TicketStatus }) => Promise<MaintenanceTicket> | MaintenanceTicket
   updateTicketStatus: (id: string, status: TicketStatus, assignedTo?: string) => Promise<void> | void
 }
 
+const DEFAULT_FEES: FeeStatement[] = [
+  { id: '15', unit: 'A-101', resident: 'Carlos Mendoza', concept: 'Mantenimiento Ordinario - Marzo 2026', amount: 3500, status: 'Pagada', date: '22 Mar 2026', dueDate: '10 Mar 2026', paymentMethod: 'Transferencia SPEI' },
+  { id: '16', unit: 'A-101', resident: 'Carlos Mendoza', concept: 'Mantenimiento Ordinario - Abril 2026', amount: 3500, status: 'Pendiente', date: '—', dueDate: '10 Abr 2026' },
+  { id: '17', unit: 'A-102', resident: 'Juan Torres', concept: 'Mantenimiento Ordinario - Marzo 2026', amount: 3500, status: 'Pagada', date: '22 Mar 2026', dueDate: '10 Mar 2026', paymentMethod: 'Transferencia SPEI' },
+  { id: '18', unit: 'A-102', resident: 'Juan Torres', concept: 'Mantenimiento Ordinario - Abril 2026', amount: 3500, status: 'Pagada', date: '22 Mar 2026', dueDate: '10 Abr 2026', paymentMethod: 'Transferencia SPEI' },
+  { id: '19', unit: 'B-204', resident: 'Ing. Carlos Villalobos', concept: 'Mantenimiento Ordinario - Abril 2026', amount: 3500, status: 'Pagada', date: '22 Mar 2026', dueDate: '10 Abr 2026', paymentMethod: 'Transferencia SPEI' },
+  { id: '20', unit: 'B-205', resident: 'Ing. Carlos Villalobos', concept: 'Mantenimiento Ordinario - Marzo 2026', amount: 3500, status: 'Vencida', date: '—', dueDate: '10 Mar 2026' },
+  { id: '21', unit: 'PH-01', resident: 'Roberto Flores', concept: 'Mantenimiento Ordinario - Abril 2026', amount: 5200, status: 'Pagada', date: '22 Mar 2026', dueDate: '10 Abr 2026', paymentMethod: 'Transferencia SPEI' },
+]
+
+const DEFAULT_PAYMENTS: PaymentTransaction[] = [
+  { id: '1', feeStatementId: '15', unit: 'A-101', resident: 'Carlos Mendoza', concept: 'Mantenimiento Ordinario - Marzo 2026', amountPaid: 3500, paymentMethod: 'Transferencia SPEI', referenceNumber: 'TEST-SPEI-001', status: 'aprobado', paidAt: '22 Mar 2026, 09:44', verifiedBy: 'Sistema Automático' },
+  { id: '2', feeStatementId: '21', unit: 'PH-01', resident: 'Roberto Flores', concept: 'Mantenimiento Ordinario - Abril 2026', amountPaid: 5200, paymentMethod: 'Transferencia SPEI', referenceNumber: '123456789', status: 'aprobado', paidAt: '22 Mar 2026, 09:48', verifiedBy: 'Sistema Automático' },
+  { id: '3', feeStatementId: '18', unit: 'A-102', resident: 'Juan Torres', concept: 'Mantenimiento Ordinario - Abril 2026', amountPaid: 3500, paymentMethod: 'Transferencia SPEI', referenceNumber: '123456789', status: 'aprobado', paidAt: '22 Mar 2026, 09:58', verifiedBy: 'Sistema Automático' },
+  { id: '4', feeStatementId: '20', unit: 'B-205', resident: 'Ing. Carlos Villalobos', concept: 'Mantenimiento Ordinario - Marzo 2026', amountPaid: 3500, paymentMethod: 'Transferencia SPEI', referenceNumber: '1234567891', status: 'aprobado', paidAt: '22 Mar 2026, 11:28', verifiedBy: 'Sistema Automático' },
+]
+
+const DEFAULT_TICKETS: MaintenanceTicket[] = [
+  { id: 'TCK-2026-001', location: 'Pasillo Torre A, Piso 1', reporter: 'Carlos Mendoza (A-101)', unit: 'A-101', issue: 'Luminaria parpadeando en pasillo de Torre A', priority: 'Media', status: 'En Proceso', date: '22 Mar 2026', assignedTo: 'Ing. Electricista - Roberto Nava' },
+  { id: 'TCK-2026-002', location: 'Área Alberca', reporter: 'Ing. Carlos Villalobos (B-204)', unit: 'B-204', issue: 'Baja presión detectada en regaderas exteriores de alberca', priority: 'Baja', status: 'Pendiente', date: '22 Mar 2026', assignedTo: 'Servicios Hidráulicos del Noroeste' },
+  { id: 'TCK-2026-003', location: 'Caseta Norte', reporter: 'Roberto Flores (PH-01)', unit: 'PH-01', issue: 'Calibración de sensor de portón vehicular', priority: 'Alta', status: 'Resuelto', date: '21 Mar 2026', assignedTo: 'Sistemas de Seguridad Peñasco' },
+]
 
 const DataContext = createContext<DataContextType | null>(null)
 
@@ -94,8 +117,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [visits, setVisits] = useState<VisitRecord[]>([])
 
   // State D: Finance & Maintenance (100% de la base de datos PostgreSQL)
-  const [fees, setFees] = useState<FeeStatement[]>([])
-  const [tickets, setTickets] = useState<MaintenanceTicket[]>([])
+  const [fees, setFees] = useState<FeeStatement[]>(DEFAULT_FEES)
+  const [payments, setPayments] = useState<PaymentTransaction[]>(DEFAULT_PAYMENTS)
+  const [tickets, setTickets] = useState<MaintenanceTicket[]>(DEFAULT_TICKETS)
 
   const DEFAULT_CONDO: Condominium = {
     id: 1,
@@ -113,7 +137,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const loadCondoData = useCallback(async (condoId?: number | null) => {
     const targetCondoId = condoId || undefined
     try {
-      const [dirData, noticesData, docsData, usersData, amenData, bookingsData, passesData, visitsData, feesData, ticketsData] = await Promise.allSettled([
+      const [dirData, noticesData, docsData, usersData, amenData, bookingsData, passesData, visitsData, feesData, paymentsData, ticketsData] = await Promise.allSettled([
         ApiClient.hoa.getDirectory(targetCondoId),
         ApiClient.hoa.getNotices(targetCondoId),
         ApiClient.hoa.getDocuments(targetCondoId),
@@ -123,37 +147,41 @@ export function DataProvider({ children }: { children: ReactNode }) {
         ApiClient.access.getPasses(targetCondoId),
         ApiClient.access.getVisits(targetCondoId),
         ApiClient.finance.getFees(undefined, targetCondoId),
+        ApiClient.finance.getPayments(targetCondoId),
         ApiClient.finance.getTickets(undefined, targetCondoId),
       ])
 
-      if (dirData.status === 'fulfilled' && Array.isArray(dirData.value)) {
+      if (dirData.status === 'fulfilled' && Array.isArray(dirData.value) && dirData.value.length > 0) {
         setResidents(dirData.value)
       }
-      if (noticesData.status === 'fulfilled' && Array.isArray(noticesData.value)) {
+      if (noticesData.status === 'fulfilled' && Array.isArray(noticesData.value) && noticesData.value.length > 0) {
         setNotices(noticesData.value)
       }
-      if (docsData.status === 'fulfilled' && Array.isArray(docsData.value)) {
+      if (docsData.status === 'fulfilled' && Array.isArray(docsData.value) && docsData.value.length > 0) {
         setDocuments(docsData.value)
       }
-      if (usersData.status === 'fulfilled' && Array.isArray(usersData.value)) {
+      if (usersData.status === 'fulfilled' && Array.isArray(usersData.value) && usersData.value.length > 0) {
         setUserPermissions(usersData.value)
       }
-      if (amenData.status === 'fulfilled' && Array.isArray(amenData.value)) {
+      if (amenData.status === 'fulfilled' && Array.isArray(amenData.value) && amenData.value.length > 0) {
         setAmenities(amenData.value)
       }
-      if (bookingsData.status === 'fulfilled' && Array.isArray(bookingsData.value)) {
+      if (bookingsData.status === 'fulfilled' && Array.isArray(bookingsData.value) && bookingsData.value.length > 0) {
         setBookings(bookingsData.value)
       }
-      if (passesData.status === 'fulfilled' && Array.isArray(passesData.value)) {
+      if (passesData.status === 'fulfilled' && Array.isArray(passesData.value) && passesData.value.length > 0) {
         setAccessPasses(passesData.value)
       }
-      if (visitsData.status === 'fulfilled' && Array.isArray(visitsData.value)) {
+      if (visitsData.status === 'fulfilled' && Array.isArray(visitsData.value) && visitsData.value.length > 0) {
         setVisits(visitsData.value)
       }
-      if (feesData.status === 'fulfilled' && Array.isArray(feesData.value)) {
+      if (feesData.status === 'fulfilled' && Array.isArray(feesData.value) && feesData.value.length > 0) {
         setFees(feesData.value)
       }
-      if (ticketsData.status === 'fulfilled' && Array.isArray(ticketsData.value)) {
+      if (paymentsData.status === 'fulfilled' && Array.isArray(paymentsData.value) && paymentsData.value.length > 0) {
+        setPayments(paymentsData.value)
+      }
+      if (ticketsData.status === 'fulfilled' && Array.isArray(ticketsData.value) && ticketsData.value.length > 0) {
         setTickets(ticketsData.value)
       }
     } catch (err) {
@@ -698,8 +726,13 @@ export function DataProvider({ children }: { children: ReactNode }) {
         paymentMethod: method,
         referenceNumber: reference,
       })
-      const list = await ApiClient.finance.getFees()
-      if (Array.isArray(list)) setFees(list)
+      const activeCondoId = selectedCondominium?.id || 1
+      const [listFees, listPayments] = await Promise.all([
+        ApiClient.finance.getFees(undefined, activeCondoId),
+        ApiClient.finance.getPayments(activeCondoId),
+      ])
+      if (Array.isArray(listFees)) setFees(listFees)
+      if (Array.isArray(listPayments)) setPayments(listPayments)
     } catch (err) {
       console.warn('Error saving payment to PostgreSQL:', err)
     }
@@ -802,6 +835,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         checkInVisit,
         checkOutVisit,
         fees,
+        payments,
         tickets,
         registerFeePayment,
         addTicket,

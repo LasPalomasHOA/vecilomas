@@ -12,6 +12,21 @@ export interface FeeStatement {
   paymentMethod?: string
 }
 
+export interface PaymentTransaction {
+  id: string
+  feeStatementId: string
+  unit: string
+  resident: string
+  concept: string
+  amountPaid: number
+  paymentMethod: string
+  referenceNumber: string
+  voucherUrl?: string
+  status: string
+  paidAt: string
+  verifiedBy: string
+}
+
 export type TicketPriority = 'Alta' | 'Media' | 'Baja'
 export type TicketStatus = 'Pendiente' | 'En Proceso' | 'Resuelto'
 

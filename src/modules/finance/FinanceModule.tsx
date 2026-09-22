@@ -3,14 +3,15 @@ import ModHero from '@/components/common/ModHero'
 import SubTabs from '@/components/common/SubTabs'
 import Ico from '@/components/common/Icons'
 import FeeControl from '@/modules/finance/FeeControl'
+import PaymentsHistory from '@/modules/finance/PaymentsHistory'
 import MaintenanceTickets from '@/modules/finance/MaintenanceTickets'
 import { useData } from '@/context/DataContext'
 
-export type FinanceTab = 'fees' | 'tickets'
+export type FinanceTab = 'fees' | 'payments' | 'tickets'
 
 export function FinanceModule({ defaultTab = 'fees' }: { defaultTab?: FinanceTab }) {
   const [tab, setTab] = useState<FinanceTab>(defaultTab)
-  const { fees, tickets } = useData()
+  const { fees, payments, tickets } = useData()
 
   useEffect(() => {
     setTab(defaultTab)
@@ -31,6 +32,7 @@ export function FinanceModule({ defaultTab = 'fees' }: { defaultTab?: FinanceTab
       <SubTabs
         tabs={[
           { id: 'fees' as FinanceTab, label: 'Control de Cuotas y Finanzas', shortLabel: 'Cuotas', badge: overdueCount ? `${overdueCount} morosas` : undefined },
+          { id: 'payments' as FinanceTab, label: 'Historial de Pagos y SPEI', shortLabel: 'Pagos Realizados', badge: payments.length || undefined },
           { id: 'tickets' as FinanceTab, label: 'Tickets de Mantenimiento', shortLabel: 'Tickets', badge: pendingTicketsCount || undefined },
         ]}
         active={tab}
@@ -38,6 +40,7 @@ export function FinanceModule({ defaultTab = 'fees' }: { defaultTab?: FinanceTab
       />
 
       {tab === 'fees' && <FeeControl />}
+      {tab === 'payments' && <PaymentsHistory />}
       {tab === 'tickets' && <MaintenanceTickets />}
     </div>
   )

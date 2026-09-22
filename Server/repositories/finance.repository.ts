@@ -26,7 +26,58 @@ export interface MaintenanceTicketListItem {
   notes?: string
 }
 
+export interface PaymentTransactionListItem {
+  id: string
+  feeStatementId: string
+  unit: string
+  resident: string
+  concept: string
+  amountPaid: number
+  paymentMethod: string
+  referenceNumber: string
+  voucherUrl?: string
+  status: string
+  paidAt: string
+  verifiedBy: string
+}
+
 export class FinanceRepository {
+  /**
+   * Obtiene el listado completo de pagos reales registrados en la base de datos
+   */
+  static async getPayments(condoId?: string | number, unitId?: string | number): Promise<PaymentTransactionListItem[]> {
+    const sql = `
+      SELECT 
+        p.id::text,
+        p.fee_statement_id::text AS "feeStatementId",
+        un.unit_number AS unit,
+        COALESCE(u.full_name, 'Residente') AS resident,
+        fs.description AS concept,
+        p.amount_paid::float AS "amountPaid",
+        CASE 
+          WHEN p.payment_method IN ('spei', 'Transferencia SPEI') THEN 'Transferencia SPEI'
+          WHEN p.payment_method IN ('tarjeta_debito', 'tarjeta_credito', 'Tarjeta de Débito / Crédito') THEN 'Tarjeta de Débito / Crédito'
+          WHEN p.payment_method IN ('efectivo_oficina', 'Efectivo en Administración') THEN 'Efectivo en Administración'
+          WHEN p.payment_method = 'cheque' THEN 'Cheque'
+          ELSE p.payment_method
+        END AS "paymentMethod",
+        COALESCE(p.reference_number, '—') AS "referenceNumber",
+        p.voucher_url AS "voucherUrl",
+        p.status,
+        to_char(p.paid_at, 'DD Mon YYYY, HH24:MI') AS "paidAt",
+        COALESCE(v.full_name, 'Sistema Automático') AS "verifiedBy"
+      FROM vecilomas.payments p
+      JOIN vecilomas.fee_statements fs ON p.fee_statement_id = fs.id
+      JOIN vecilomas.units un ON fs.unit_id = un.id
+      LEFT JOIN vecilomas.users u ON p.user_id = u.id
+      LEFT JOIN vecilomas.users v ON p.verified_by_user_id = v.id
+      WHERE ($1::integer IS NULL OR un.condominium_id = $1::integer OR un.condominium_id IS NULL)
+        AND ($2::integer IS NULL OR fs.unit_id = $2::integer)
+      ORDER BY p.paid_at DESC, p.id DESC;
+    `
+    const { rows } = await query(sql, [condoId ? Number(condoId) : null, unitId ? Number(unitId) : null])
+    return rows
+  }
   /**
    * Obtiene los estados de cuenta con los datos de residente y último método de pago
    */
@@ -67,7 +118,7 @@ export class FinanceRepository {
         ORDER BY paid_at DESC 
         LIMIT 1
       ) p ON TRUE
-      WHERE ($1::integer IS NULL OR un.condominium_id = $1::integer)
+      WHERE ($1::integer IS NULL OR un.condominium_id = $1::integer OR un.condominium_id IS NULL)
         AND ($2::integer IS NULL OR fs.unit_id = $2::integer)
       ORDER BY fs.due_date DESC, fs.id DESC;
     `

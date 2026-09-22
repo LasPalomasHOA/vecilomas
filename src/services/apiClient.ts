@@ -105,6 +105,13 @@ export const ApiClient = {
       const q = params.toString()
       return request<any[]>(`/finance/fees${q ? `?${q}` : ''}`)
     },
+    getPayments: (condoId?: string | number, unitId?: string) => {
+      const params = new URLSearchParams()
+      if (condoId) params.append('condoId', String(condoId))
+      if (unitId) params.append('unitId', unitId)
+      const q = params.toString()
+      return request<any[]>(`/finance/payments${q ? `?${q}` : ''}`)
+    },
     registerPayment: (data: any) => request('/finance/payments', { method: 'POST', body: JSON.stringify(data) }),
     getTickets: (unitId?: string, condoId?: string | number) => {
       const params = new URLSearchParams()

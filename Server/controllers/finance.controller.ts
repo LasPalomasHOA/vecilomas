@@ -13,6 +13,17 @@ export class FinanceController {
     }
   }
 
+  static async getPayments(req: Request, res: Response) {
+    try {
+      const condoId = req.query.condoId as string
+      const unitId = req.query.unitId as string
+      const payments = await FinanceRepository.getPayments(condoId, unitId)
+      res.json({ success: true, data: payments })
+    } catch (error: any) {
+      res.status(500).json({ success: false, error: error.message })
+    }
+  }
+
   static async registerPayment(req: Request, res: Response) {
     try {
       const payment = await FinanceRepository.registerPayment(req.body)

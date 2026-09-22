@@ -9,7 +9,7 @@ import Ico from '@/components/common/Icons'
 import { exportFullFinanceReportToExcel } from '@/utils/excelExporter'
 
 export function FeeControl() {
-  const { fees, tickets, selectedCondominium, registerFeePayment } = useData()
+  const { fees, payments, tickets, selectedCondominium, registerFeePayment } = useData()
   const [filterStatus, setFilterStatus] = useState<'all' | FeeStatus>('all')
   const [modalPayment, setModalPayment] = useState<FeeStatement | null>(null)
   const [payMethod, setPayMethod] = useState('Transferencia SPEI')
@@ -44,6 +44,7 @@ export function FeeControl() {
     try {
       const fileName = exportFullFinanceReportToExcel({
         fees: filtered,
+        payments: payments,
         tickets: tickets,
         condominiumName: selectedCondominium?.name || 'Condominio Residencial Las Palomas',
       })
