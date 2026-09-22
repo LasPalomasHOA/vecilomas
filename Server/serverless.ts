@@ -320,10 +320,17 @@ export default async function handler(req: CustomRequest, res: CustomResponse) {
       return sendJson(200, { success: true, data: fees })
     }
 
-    if (pathname === '/api/finance/payments' && method === 'POST') {
-      const payment = await FinanceRepository.registerPayment(body)
-      return sendJson(201, { success: true, data: payment })
+    if (pathname === '/api/finance/payments') {
+      if (method === 'GET') {
+        const payments = await FinanceRepository.getPayments(queryParams.condoId, queryParams.unitId)
+        return sendJson(200, { success: true, data: payments })
+      }
+      if (method === 'POST') {
+        const payment = await FinanceRepository.registerPayment(body)
+        return sendJson(201, { success: true, data: payment })
+      }
     }
+
 
     if (pathname === '/api/finance/tickets') {
       if (method === 'GET') {

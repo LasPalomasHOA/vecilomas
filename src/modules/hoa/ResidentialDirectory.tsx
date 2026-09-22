@@ -5,6 +5,7 @@ import Badge from '@/components/common/Badge'
 import Btn from '@/components/common/Button'
 import Modal from '@/components/common/Modal'
 import Ico from '@/components/common/Icons'
+import { generateSecurePassword } from '@/utils/passwordGenerator'
 
 export function ResidentialDirectory() {
   const {
@@ -23,6 +24,10 @@ export function ResidentialDirectory() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingResident, setEditingResident] = useState<Resident | null>(null)
   const [saving, setSaving] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [copiedPass, setCopiedPass] = useState(false)
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
+
   const [form, setForm] = useState({
     unit: '',
     name: '',
@@ -31,6 +36,7 @@ export function ResidentialDirectory() {
     phone: '',
     email: '',
     vehicles: '',
+    password: '',
   })
 
   // Modal State: Delete Confirmation
@@ -38,8 +44,28 @@ export function ResidentialDirectory() {
   const [residentToDelete, setResidentToDelete] = useState<Resident | null>(null)
   const [deleting, setDeleting] = useState(false)
 
+  function handleGeneratePassword() {
+    const newPass = generateSecurePassword('LP-', 10)
+    setForm(f => ({ ...f, password: newPass }))
+    setShowPassword(true)
+    setToastMessage(`⚡ Contraseña generada: "${newPass}"`)
+    setTimeout(() => setToastMessage(null), 4000)
+  }
+
+  function handleCopyPassword() {
+    if (!form.password) return
+    navigator.clipboard.writeText(form.password)
+    setCopiedPass(true)
+    setToastMessage('✓ Contraseña copiada al portapapeles.')
+    setTimeout(() => {
+      setCopiedPass(false)
+      setToastMessage(null)
+    }, 3000)
+  }
+
   function openCreate() {
     setEditingResident(null)
+    const initialPass = generateSecurePassword('LP-', 10)
     setForm({
       unit: '',
       name: '',
@@ -48,7 +74,9 @@ export function ResidentialDirectory() {
       phone: '',
       email: '',
       vehicles: '',
+      password: initialPass,
     })
+    setShowPassword(true)
     setModalOpen(true)
   }
 
@@ -62,7 +90,9 @@ export function ResidentialDirectory() {
       phone: r.phone,
       email: r.email,
       vehicles: Array.isArray(r.vehicles) ? r.vehicles.join(', ') : '',
+      password: '',
     })
+    setShowPassword(false)
     setModalOpen(true)
   }
 
@@ -106,7 +136,9 @@ export function ResidentialDirectory() {
           phone: form.phone,
           email: form.email,
           vehicles: vehiclesArray,
+          ...(form.password ? { password: form.password } : {}),
         })
+        setToastMessage(`✓ Condómino "${form.name}" actualizado exitosamente.`)
       } else {
         await addResident({
           unit: form.unit,
@@ -116,8 +148,11 @@ export function ResidentialDirectory() {
           phone: form.phone,
           email: form.email,
           vehicles: vehiclesArray,
+          password: form.password,
         })
+        setToastMessage(`✓ Condómino "${form.name}" y su cuenta de acceso registrados en PostgreSQL.`)
       }
+      setTimeout(() => setToastMessage(null), 4500)
       setModalOpen(false)
     } catch (err) {
       console.error(err)
@@ -125,6 +160,7 @@ export function ResidentialDirectory() {
       setSaving(false)
     }
   }
+
 
   const filtered = residents.filter(r => {
     const q = search.toLowerCase()
@@ -142,6 +178,22 @@ export function ResidentialDirectory() {
 
   return (
     <div className="space-y-4">
+      {/* Toast Alert */}
+      {toastMessage && (
+        <div className="p-4 rounded-2xl bg-teal-50 border border-teal-200 text-teal-950 text-xs sm:text-sm font-semibold flex items-center justify-between gap-3 animate-fade-in shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <Ico n="check" c="w-5 h-5 text-teal-600 shrink-0" />
+            <span>{toastMessage}</span>
+          </div>
+          <button
+            onClick={() => setToastMessage(null)}
+            className="text-xs text-teal-700 hover:text-teal-900 font-bold cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Clean Directory Header */}
       <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-white p-4 sm:p-5 rounded-2xl border border-slate-100 shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
         <div>
@@ -407,6 +459,63 @@ export function ResidentialDirectory() {
             />
           </div>
 
+          {/* Sección de Credenciales de Acceso */}
+          <div className="p-4 rounded-2xl bg-slate-50/90 border border-slate-200/90 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                <Ico n="shield" c="w-4 h-4 text-teal-600" />
+                <span>Contraseña de Acceso al Portal</span>
+              </label>
+              <button
+                type="button"
+                onClick={handleGeneratePassword}
+                className="text-xs font-bold text-teal-800 hover:text-teal-950 bg-teal-100 hover:bg-teal-200 px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer shadow-2xs active:scale-95"
+                title="Genera una clave aleatoria que empieza con LP-"
+              >
+                <span>⚡ Generar (LP-...)</span>
+              </button>
+            </div>
+
+            <div className="relative flex items-center gap-2">
+              <div className="relative flex-1">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={form.password}
+                  onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                  placeholder={editingResident ? '•••••••• (Dejar vacío para no cambiar)' : 'Ej. LP-8xK9m2Q'}
+                  className="w-full pl-3.5 pr-20 py-2.5 text-sm rounded-xl bg-white border border-slate-200 focus:border-teal-500 focus:outline-none transition-all font-mono font-bold text-slate-900"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(p => !p)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500 hover:text-slate-800 px-1.5 py-0.5 rounded cursor-pointer"
+                >
+                  {showPassword ? 'Ocultar' : 'Ver'}
+                </button>
+              </div>
+
+              {form.password && (
+                <button
+                  type="button"
+                  onClick={handleCopyPassword}
+                  className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 border ${
+                    copiedPass
+                      ? 'bg-emerald-600 text-white border-emerald-600'
+                      : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200 shadow-2xs'
+                  }`}
+                  title="Copiar contraseña al portapapeles"
+                >
+                  <Ico n="check" c={`w-3.5 h-3.5 ${copiedPass ? 'text-white' : 'text-slate-500'}`} />
+                  <span>{copiedPass ? 'Copiada' : 'Copiar'}</span>
+                </button>
+              )}
+            </div>
+
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              El condómino podrá iniciar sesión en el portal seleccionando el rol <strong>Residente</strong> con su correo o número de unidad (<span className="text-teal-700 font-bold">{form.unit || 'A-101'}</span>) y esta contraseña.
+            </p>
+          </div>
+
           <div className="flex gap-3 pt-3">
             <Btn type="submit" disabled={saving} className="flex-1 font-bold">
               {saving ? 'Guardando en BD...' : editingResident ? 'Guardar Cambios' : 'Registrar Condómino'}
@@ -415,6 +524,7 @@ export function ResidentialDirectory() {
               Cancelar
             </Btn>
           </div>
+
         </form>
       </Modal>
 

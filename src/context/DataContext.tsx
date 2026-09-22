@@ -286,6 +286,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         residentType: r.type,
         status: r.status,
         vehicles: r.vehicles,
+        password: r.password,
       })
       const updatedList = await ApiClient.hoa.getDirectory(activeCondoId)
       if (Array.isArray(updatedList)) setResidents(updatedList)
@@ -311,6 +312,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
         residentType: updated.type,
         status: updated.status,
         vehicles: updated.vehicles,
+        password: updated.password,
       })
       const updatedList = await ApiClient.hoa.getDirectory(activeCondoId)
       if (Array.isArray(updatedList)) setResidents(updatedList)
@@ -412,18 +414,21 @@ export function DataProvider({ children }: { children: ReactNode }) {
         fullName: u.name,
         email: u.email,
         role: u.role,
-        unitNumber: u.unit,
+        password: u.password,
+        unitNumber: u.role === 'resident' ? u.unit : undefined,
         permissions: u.permissions,
       })
       const updated = await ApiClient.hoa.getUsersPermissions(activeCondoId)
       if (Array.isArray(updated)) setUserPermissions(updated)
     } catch (err) {
+      console.error('Error creating user permission:', err)
       const newId = `USR-00${userPermissions.length + 1}`
       setUserPermissions(prev => [...prev, { id: newId, ...u }])
     }
   }
 
   async function deleteUserPermission(id: number | string) {
+
     const activeCondoId = selectedCondominium?.id || condominiums[0]?.id || 1
     try {
       await ApiClient.hoa.deleteUserPermission(id)

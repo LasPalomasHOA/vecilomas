@@ -222,6 +222,7 @@ var AuthRepository = class {
 };
 
 // Server/repositories/hoa.repository.ts
+import bcrypt2 from "bcryptjs";
 var HoaRepository = class {
   /**
    * Obtiene la lista de condominios registrados
@@ -350,18 +351,33 @@ var HoaRepository = class {
         await client.query("UPDATE vecilomas.units SET status = $2 WHERE id = $1", [unitId, unitStatus]);
       }
       const rType = (data.residentType || "propietario").toLowerCase();
+      let userEmail = (data.email || "").trim().toLowerCase();
+      if (!userEmail) {
+        const cleanName = (data.fullName || "residente").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const cleanUnit = (data.unitNumber || "sn").toLowerCase().replace(/[^a-z0-9]/g, "");
+        userEmail = `${cleanName}.${cleanUnit}@laspalomas.mx`;
+      }
+      let passwordHash = "$2b$10$piiUvSixamfnpdrWUB9qVeRBicvdo3IpjVqIZA2E6H6zfSf3FMhdG";
+      if (data.password && data.password.trim()) {
+        passwordHash = await bcrypt2.hash(data.password.trim(), 10);
+      }
       const insertUserSql = `
         INSERT INTO vecilomas.users (
           condominium_id, unit_id, email, password_hash, full_name, phone, role, resident_type, status
-        ) VALUES ($1, $2, $3, '$2b$10$piiUvSixamfnpdrWUB9qVeRBicvdo3IpjVqIZA2E6H6zfSf3FMhdG', $4, $5, 'resident', $6, 'activo')
+        ) VALUES ($1, $2, $3, $4, $5, $6, 'resident', $7, 'activo')
         ON CONFLICT (email) DO UPDATE 
-        SET unit_id = EXCLUDED.unit_id, full_name = EXCLUDED.full_name, phone = EXCLUDED.phone, resident_type = EXCLUDED.resident_type
+        SET unit_id = EXCLUDED.unit_id,
+            full_name = EXCLUDED.full_name,
+            phone = EXCLUDED.phone,
+            resident_type = EXCLUDED.resident_type,
+            password_hash = CASE WHEN EXCLUDED.password_hash != '$2b$10$piiUvSixamfnpdrWUB9qVeRBicvdo3IpjVqIZA2E6H6zfSf3FMhdG' THEN EXCLUDED.password_hash ELSE vecilomas.users.password_hash END
         RETURNING id, full_name, email;
       `;
       const userRes = await client.query(insertUserSql, [
         condoId,
         unitId,
-        data.email,
+        userEmail,
+        passwordHash,
         data.fullName,
         data.phone || "",
         rType
@@ -381,7 +397,7 @@ var HoaRepository = class {
     });
   }
   /**
-   * Actualiza datos de un residente (nombre, email, teléfono, tipo, unidad, status, vehículos)
+   * Actualiza datos de un residente (nombre, email, teléfono, tipo, unidad, status, vehículos, contraseña)
    */
   static async updateResident(id, data) {
     return await withTransaction(async (client) => {
@@ -407,20 +423,20 @@ var HoaRepository = class {
         }
       }
       const rType = (data.residentType || "propietario").toLowerCase();
+      let passwordHashUpdate = "";
+      const params = [id, unitId, data.fullName, data.email, data.phone || "", rType];
+      if (data.password && data.password.trim()) {
+        const hashed = await bcrypt2.hash(data.password.trim(), 10);
+        params.push(hashed);
+        passwordHashUpdate = `, password_hash = $${params.length}`;
+      }
       const updateSql = `
         UPDATE vecilomas.users
-        SET unit_id = $2, full_name = $3, email = $4, phone = $5, resident_type = $6, updated_at = NOW()
+        SET unit_id = $2, full_name = $3, email = $4, phone = $5, resident_type = $6, updated_at = NOW() ${passwordHashUpdate}
         WHERE id = $1
         RETURNING id, full_name, email;
       `;
-      const resUser = await client.query(updateSql, [
-        id,
-        unitId,
-        data.fullName,
-        data.email,
-        data.phone || "",
-        rType
-      ]);
+      const resUser = await client.query(updateSql, params);
       if (data.vehicles !== void 0) {
         await client.query("DELETE FROM vecilomas.vehicles WHERE user_id = $1 OR unit_id = $2", [id, unitId]);
         for (const plate of data.vehicles) {
@@ -544,17 +560,24 @@ var HoaRepository = class {
   static async createUserWithPermissions(data) {
     return await withTransaction(async (client) => {
       let unitId = null;
-      if (data.unitNumber) {
+      if (data.role === "resident" && data.unitNumber) {
         const u = await client.query("SELECT id FROM vecilomas.units WHERE condominium_id = $1 AND unit_number = $2", [data.condominiumId || 1, data.unitNumber]);
         if (u.rows[0]) unitId = u.rows[0].id;
       }
+      let passwordHash = "$2b$10$piiUvSixamfnpdrWUB9qVeRBicvdo3IpjVqIZA2E6H6zfSf3FMhdG";
+      if (data.password && data.password.trim()) {
+        passwordHash = await bcrypt2.hash(data.password.trim(), 10);
+      }
       const userRes = await client.query(`
         INSERT INTO vecilomas.users (condominium_id, unit_id, email, password_hash, full_name, role, status)
-        VALUES ($1, $2, $3, '$2b$10$piiUvSixamfnpdrWUB9qVeRBicvdo3IpjVqIZA2E6H6zfSf3FMhdG', $4, $5, 'activo')
+        VALUES ($1, $2, $3, $4, $5, $6, 'activo')
         ON CONFLICT (email) DO UPDATE
-        SET role = EXCLUDED.role, full_name = EXCLUDED.full_name, unit_id = EXCLUDED.unit_id
+        SET role = EXCLUDED.role,
+            full_name = EXCLUDED.full_name,
+            unit_id = EXCLUDED.unit_id,
+            password_hash = CASE WHEN EXCLUDED.password_hash != '$2b$10$piiUvSixamfnpdrWUB9qVeRBicvdo3IpjVqIZA2E6H6zfSf3FMhdG' THEN EXCLUDED.password_hash ELSE vecilomas.users.password_hash END
         RETURNING id, full_name, email, role, status;
-      `, [data.condominiumId || 1, unitId, data.email, data.fullName, data.role]);
+      `, [data.condominiumId || 1, unitId, data.email, passwordHash, data.fullName, data.role]);
       const userId = userRes.rows[0].id;
       if (data.permissions && data.permissions.length > 0) {
         for (const perm of data.permissions) {
@@ -1168,6 +1191,42 @@ var AccessRepository = class {
 // Server/repositories/finance.repository.ts
 var FinanceRepository = class {
   /**
+   * Obtiene el listado completo de pagos reales registrados en la base de datos
+   */
+  static async getPayments(condoId, unitId) {
+    const sql = `
+      SELECT 
+        p.id::text,
+        p.fee_statement_id::text AS "feeStatementId",
+        un.unit_number AS unit,
+        COALESCE(u.full_name, 'Residente') AS resident,
+        fs.description AS concept,
+        p.amount_paid::float AS "amountPaid",
+        CASE 
+          WHEN p.payment_method IN ('spei', 'Transferencia SPEI') THEN 'Transferencia SPEI'
+          WHEN p.payment_method IN ('tarjeta_debito', 'tarjeta_credito', 'Tarjeta de D\xE9bito / Cr\xE9dito') THEN 'Tarjeta de D\xE9bito / Cr\xE9dito'
+          WHEN p.payment_method IN ('efectivo_oficina', 'Efectivo en Administraci\xF3n') THEN 'Efectivo en Administraci\xF3n'
+          WHEN p.payment_method = 'cheque' THEN 'Cheque'
+          ELSE p.payment_method
+        END AS "paymentMethod",
+        COALESCE(p.reference_number, '\u2014') AS "referenceNumber",
+        p.voucher_url AS "voucherUrl",
+        p.status,
+        to_char(p.paid_at, 'DD Mon YYYY, HH24:MI') AS "paidAt",
+        COALESCE(v.full_name, 'Sistema Autom\xE1tico') AS "verifiedBy"
+      FROM vecilomas.payments p
+      JOIN vecilomas.fee_statements fs ON p.fee_statement_id = fs.id
+      JOIN vecilomas.units un ON fs.unit_id = un.id
+      LEFT JOIN vecilomas.users u ON p.user_id = u.id
+      LEFT JOIN vecilomas.users v ON p.verified_by_user_id = v.id
+      WHERE ($1::integer IS NULL OR un.condominium_id = $1::integer OR un.condominium_id IS NULL)
+        AND ($2::integer IS NULL OR fs.unit_id = $2::integer)
+      ORDER BY p.paid_at DESC, p.id DESC;
+    `;
+    const { rows } = await query(sql, [condoId ? Number(condoId) : null, unitId ? Number(unitId) : null]);
+    return rows;
+  }
+  /**
    * Obtiene los estados de cuenta con los datos de residente y último método de pago
    */
   static async getFeeStatements(condoId, unitId) {
@@ -1207,7 +1266,7 @@ var FinanceRepository = class {
         ORDER BY paid_at DESC 
         LIMIT 1
       ) p ON TRUE
-      WHERE ($1::integer IS NULL OR un.condominium_id = $1::integer)
+      WHERE ($1::integer IS NULL OR un.condominium_id = $1::integer OR un.condominium_id IS NULL)
         AND ($2::integer IS NULL OR fs.unit_id = $2::integer)
       ORDER BY fs.due_date DESC, fs.id DESC;
     `;
@@ -1694,9 +1753,15 @@ async function handler(req, res) {
       const fees = await FinanceRepository.getFeeStatements(queryParams.condoId);
       return sendJson(200, { success: true, data: fees });
     }
-    if (pathname === "/api/finance/payments" && method === "POST") {
-      const payment = await FinanceRepository.registerPayment(body);
-      return sendJson(201, { success: true, data: payment });
+    if (pathname === "/api/finance/payments") {
+      if (method === "GET") {
+        const payments = await FinanceRepository.getPayments(queryParams.condoId, queryParams.unitId);
+        return sendJson(200, { success: true, data: payments });
+      }
+      if (method === "POST") {
+        const payment = await FinanceRepository.registerPayment(body);
+        return sendJson(201, { success: true, data: payment });
+      }
     }
     if (pathname === "/api/finance/tickets") {
       if (method === "GET") {

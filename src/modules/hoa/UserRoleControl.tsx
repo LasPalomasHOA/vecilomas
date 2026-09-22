@@ -6,6 +6,7 @@ import Badge from '@/components/common/Badge'
 import Btn from '@/components/common/Button'
 import Modal from '@/components/common/Modal'
 import Ico from '@/components/common/Icons'
+import { generateSecurePassword } from '@/utils/passwordGenerator'
 
 const ROLES_OVERVIEW: {
   role: UserRole
@@ -63,12 +64,49 @@ export function UserRoleControl() {
   const { userPermissions, addUserPermission, deleteUserPermission } = useData()
   const [modalOpen, setModalOpen] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [copiedPass, setCopiedPass] = useState(false)
+  const [toastMessage, setToastMessage] = useState<string | null>(null)
+
   const [form, setForm] = useState({
     name: '',
     email: '',
-    role: 'resident' as UserRole,
+    role: 'admin' as UserRole,
     unit: '',
+    password: '',
   })
+
+  function handleOpenModal() {
+    const initialPass = generateSecurePassword('LP-', 10)
+    setForm({
+      name: '',
+      email: '',
+      role: 'admin',
+      unit: '',
+      password: initialPass,
+    })
+    setShowPassword(true)
+    setModalOpen(true)
+  }
+
+  function handleGeneratePassword() {
+    const newPass = generateSecurePassword('LP-', 10)
+    setForm(f => ({ ...f, password: newPass }))
+    setShowPassword(true)
+    setToastMessage(`⚡ Contraseña generada: "${newPass}"`)
+    setTimeout(() => setToastMessage(null), 4000)
+  }
+
+  function handleCopyPassword() {
+    if (!form.password) return
+    navigator.clipboard.writeText(form.password)
+    setCopiedPass(true)
+    setToastMessage('✓ Contraseña copiada al portapapeles.')
+    setTimeout(() => {
+      setCopiedPass(false)
+      setToastMessage(null)
+    }, 3000)
+  }
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
@@ -82,12 +120,15 @@ export function UserRoleControl() {
         name: form.name,
         email: form.email,
         role: form.role,
+        password: form.password,
         unit: form.role === 'resident' ? form.unit || 'A-101' : undefined,
         status: 'Activo',
         permissions: roleConfig?.features.slice(0, 3) || ['Acceso general'],
       })
+      setToastMessage(`✓ Usuario "${form.name}" con rol "${form.role}" registrado en PostgreSQL.`)
+      setTimeout(() => setToastMessage(null), 4500)
       setModalOpen(false)
-      setForm({ name: '', email: '', role: 'resident', unit: '' })
+      setForm({ name: '', email: '', role: 'admin', unit: '', password: '' })
     } catch (err) {
       console.error(err)
     } finally {
@@ -95,8 +136,25 @@ export function UserRoleControl() {
     }
   }
 
+
   return (
     <div className="space-y-6">
+      {/* Toast Alert */}
+      {toastMessage && (
+        <div className="p-4 rounded-2xl bg-teal-50 border border-teal-200 text-teal-950 text-xs sm:text-sm font-semibold flex items-center justify-between gap-3 animate-fade-in shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <Ico n="check" c="w-5 h-5 text-teal-600 shrink-0" />
+            <span>{toastMessage}</span>
+          </div>
+          <button
+            onClick={() => setToastMessage(null)}
+            className="text-xs text-teal-700 hover:text-teal-900 font-bold cursor-pointer"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* 3 Role Definition Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {ROLES_OVERVIEW.map(r => (
@@ -137,7 +195,7 @@ export function UserRoleControl() {
               Niveles de acceso y roles asignados a administradores, condóminos y guardias sincronizados con PostgreSQL.
             </p>
           </div>
-          <Btn onClick={() => setModalOpen(true)} className="shrink-0 whitespace-nowrap font-semibold shadow-xs">
+          <Btn onClick={handleOpenModal} className="shrink-0 whitespace-nowrap font-semibold shadow-xs">
             <Ico n="plus" c="w-4 h-4" />
             Asignar Nuevo Rol
           </Btn>
@@ -191,49 +249,49 @@ export function UserRoleControl() {
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
         title="Crear Acceso de Usuario"
-        subtitle="Otorga credenciales con nivel de acceso diferenciado."
+        subtitle="Otorga credenciales con nivel de acceso diferenciado y contraseña encriptada en PostgreSQL."
       >
         <form onSubmit={handleCreate} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-600">
-              Nombre Completo
+              Nombre Completo *
             </label>
             <input
               required
               value={form.name}
               onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-              placeholder="Ej. Jorge Ramírez"
-              className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/80 border border-slate-200/80 focus:bg-white focus:border-teal-500 focus:outline-none transition-all"
+              placeholder="Ej. Lic. Roberto Gómez"
+              className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/80 border border-slate-200/80 focus:bg-white focus:border-teal-500 focus:outline-none transition-all font-medium text-slate-900"
             />
           </div>
 
           <div>
             <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-600">
-              Correo Electrónico / Identificador
+              Correo Electrónico / Identificador *
             </label>
             <input
               required
               type="email"
               value={form.email}
               onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
-              placeholder="jorge.ramirez@laspalomas.mx"
-              className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/80 border border-slate-200/80 focus:bg-white focus:border-teal-500 focus:outline-none transition-all"
+              placeholder="roberto.gomez@laspalomas.mx"
+              className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/80 border border-slate-200/80 focus:bg-white focus:border-teal-500 focus:outline-none transition-all font-mono"
             />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
             <div>
               <label className="block text-xs font-semibold uppercase tracking-wider mb-1.5 text-slate-600">
-                Nivel de Acceso
+                Nivel de Acceso / Rol *
               </label>
               <select
                 value={form.role}
                 onChange={e => setForm(f => ({ ...f, role: e.target.value as UserRole }))}
-                className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/80 border border-slate-200/80 focus:bg-white focus:border-teal-500 focus:outline-none transition-all font-medium text-slate-700"
+                className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/80 border border-slate-200/80 focus:bg-white focus:border-teal-500 focus:outline-none transition-all font-semibold text-slate-800"
               >
+                <option value="admin">Administrador HOA (Control Total)</option>
+                <option value="security">Personal de Seguridad / Caseta</option>
                 <option value="resident">Residente / Inquilino</option>
-                <option value="admin">Administrador HOA</option>
-                <option value="security">Personal de Seguridad</option>
               </select>
             </div>
             {form.role === 'resident' && (
@@ -245,15 +303,72 @@ export function UserRoleControl() {
                   value={form.unit}
                   onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
                   placeholder="Ej. B-201"
-                  className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/80 border border-slate-200/80 focus:bg-white focus:border-teal-500 focus:outline-none transition-all"
+                  className="w-full px-3.5 py-2.5 text-sm rounded-xl bg-slate-50/80 border border-slate-200/80 focus:bg-white focus:border-teal-500 focus:outline-none transition-all font-mono font-bold"
                 />
               </div>
             )}
           </div>
 
+          {/* Sección de Contraseña */}
+          <div className="p-4 rounded-2xl bg-slate-50/90 border border-slate-200/90 space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                <Ico n="shield" c="w-4 h-4 text-teal-600" />
+                <span>Contraseña de Acceso</span>
+              </label>
+              <button
+                type="button"
+                onClick={handleGeneratePassword}
+                className="text-xs font-bold text-teal-800 hover:text-teal-950 bg-teal-100 hover:bg-teal-200 px-2.5 py-1 rounded-lg transition-all flex items-center gap-1 cursor-pointer shadow-2xs active:scale-95"
+                title="Genera una clave aleatoria que empieza con LP-"
+              >
+                <span>⚡ Generar (LP-...)</span>
+              </button>
+            </div>
+
+            <div className="relative flex items-center gap-2">
+              <div className="relative flex-1">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  value={form.password}
+                  onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                  placeholder="Ej. LP-8xK9m2Q"
+                  className="w-full pl-3.5 pr-20 py-2.5 text-sm rounded-xl bg-white border border-slate-200 focus:border-teal-500 focus:outline-none transition-all font-mono font-bold text-slate-900"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(p => !p)}
+                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500 hover:text-slate-800 px-1.5 py-0.5 rounded cursor-pointer"
+                >
+                  {showPassword ? 'Ocultar' : 'Ver'}
+                </button>
+              </div>
+
+              {form.password && (
+                <button
+                  type="button"
+                  onClick={handleCopyPassword}
+                  className={`px-3 py-2.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer shrink-0 border ${
+                    copiedPass
+                      ? 'bg-emerald-600 text-white border-emerald-600'
+                      : 'bg-white hover:bg-slate-100 text-slate-700 border-slate-200 shadow-2xs'
+                  }`}
+                  title="Copiar contraseña"
+                >
+                  <Ico n="check" c={`w-3.5 h-3.5 ${copiedPass ? 'text-white' : 'text-slate-500'}`} />
+                  <span>{copiedPass ? 'Copiada' : 'Copiar'}</span>
+                </button>
+              )}
+            </div>
+
+            <p className="text-[11px] text-slate-500 leading-relaxed">
+              El usuario podrá iniciar sesión con su correo (<span className="text-teal-700 font-bold">{form.email || 'correo@ejemplo.com'}</span>) seleccionando el rol correspondiente.
+            </p>
+          </div>
+
           <div className="flex gap-3 pt-3">
-            <Btn type="submit" className="flex-1 font-semibold">
-              Crear Usuario
+            <Btn type="submit" disabled={saving} className="flex-1 font-bold">
+              {saving ? 'Guardando en BD...' : 'Crear Usuario y Guardar'}
             </Btn>
             <Btn variant="ghost" onClick={() => setModalOpen(false)}>
               Cancelar
@@ -265,3 +380,4 @@ export function UserRoleControl() {
   )
 }
 export default UserRoleControl
+

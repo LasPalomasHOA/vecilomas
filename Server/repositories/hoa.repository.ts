@@ -1,3 +1,4 @@
+import bcrypt from 'bcryptjs'
 import { query, withTransaction } from '../config/db.ts'
 import type { NoticeEntity, CommunityDocumentEntity, UserEntity } from '../types/db.types.ts'
 
@@ -142,6 +143,7 @@ export class HoaRepository {
     email: string
     phone: string
     residentType: string
+    password?: string
     status?: string
     vehicles?: string[]
   }) {
@@ -170,18 +172,37 @@ export class HoaRepository {
 
       const rType = (data.residentType || 'propietario').toLowerCase()
 
+      // Manejar correo (si viene vacío, generar identificador único)
+      let userEmail = (data.email || '').trim().toLowerCase()
+      if (!userEmail) {
+        const cleanName = (data.fullName || 'residente').toLowerCase().replace(/[^a-z0-9]/g, '')
+        const cleanUnit = (data.unitNumber || 'sn').toLowerCase().replace(/[^a-z0-9]/g, '')
+        userEmail = `${cleanName}.${cleanUnit}@laspalomas.mx`
+      }
+
+      // Manejar contraseña con bcrypt
+      let passwordHash = '$2b$10$piiUvSixamfnpdrWUB9qVeRBicvdo3IpjVqIZA2E6H6zfSf3FMhdG'
+      if (data.password && data.password.trim()) {
+        passwordHash = await bcrypt.hash(data.password.trim(), 10)
+      }
+
       const insertUserSql = `
         INSERT INTO vecilomas.users (
           condominium_id, unit_id, email, password_hash, full_name, phone, role, resident_type, status
-        ) VALUES ($1, $2, $3, '$2b$10$piiUvSixamfnpdrWUB9qVeRBicvdo3IpjVqIZA2E6H6zfSf3FMhdG', $4, $5, 'resident', $6, 'activo')
+        ) VALUES ($1, $2, $3, $4, $5, $6, 'resident', $7, 'activo')
         ON CONFLICT (email) DO UPDATE 
-        SET unit_id = EXCLUDED.unit_id, full_name = EXCLUDED.full_name, phone = EXCLUDED.phone, resident_type = EXCLUDED.resident_type
+        SET unit_id = EXCLUDED.unit_id,
+            full_name = EXCLUDED.full_name,
+            phone = EXCLUDED.phone,
+            resident_type = EXCLUDED.resident_type,
+            password_hash = CASE WHEN EXCLUDED.password_hash != '$2b$10$piiUvSixamfnpdrWUB9qVeRBicvdo3IpjVqIZA2E6H6zfSf3FMhdG' THEN EXCLUDED.password_hash ELSE vecilomas.users.password_hash END
         RETURNING id, full_name, email;
       `
       const userRes = await client.query(insertUserSql, [
         condoId,
         unitId,
-        data.email,
+        userEmail,
+        passwordHash,
         data.fullName,
         data.phone || '',
         rType,
@@ -205,7 +226,7 @@ export class HoaRepository {
   }
 
   /**
-   * Actualiza datos de un residente (nombre, email, teléfono, tipo, unidad, status, vehículos)
+   * Actualiza datos de un residente (nombre, email, teléfono, tipo, unidad, status, vehículos, contraseña)
    */
   static async updateResident(id: number, data: {
     unitNumber: string
@@ -213,6 +234,7 @@ export class HoaRepository {
     email: string
     phone: string
     residentType: string
+    password?: string
     status?: string
     vehicles?: string[]
   }) {
@@ -243,20 +265,22 @@ export class HoaRepository {
 
       const rType = (data.residentType || 'propietario').toLowerCase()
 
+      let passwordHashUpdate = ''
+      const params: any[] = [id, unitId, data.fullName, data.email, data.phone || '', rType]
+      if (data.password && data.password.trim()) {
+        const hashed = await bcrypt.hash(data.password.trim(), 10)
+        params.push(hashed)
+        passwordHashUpdate = `, password_hash = $${params.length}`
+      }
+
       const updateSql = `
         UPDATE vecilomas.users
-        SET unit_id = $2, full_name = $3, email = $4, phone = $5, resident_type = $6, updated_at = NOW()
+        SET unit_id = $2, full_name = $3, email = $4, phone = $5, resident_type = $6, updated_at = NOW() ${passwordHashUpdate}
         WHERE id = $1
         RETURNING id, full_name, email;
       `
-      const resUser = await client.query(updateSql, [
-        id,
-        unitId,
-        data.fullName,
-        data.email,
-        data.phone || '',
-        rType,
-      ])
+      const resUser = await client.query(updateSql, params)
+
 
       if (data.vehicles !== undefined) {
         await client.query('DELETE FROM vecilomas.vehicles WHERE user_id = $1 OR unit_id = $2', [id, unitId])
@@ -408,23 +432,34 @@ export class HoaRepository {
     fullName: string
     email: string
     role: string
+    password?: string
     unitNumber?: string
     permissions?: string[]
   }) {
     return await withTransaction(async (client) => {
       let unitId = null
-      if (data.unitNumber) {
+      // Solo asociar unidad si el rol es explícitamente residente
+      if (data.role === 'resident' && data.unitNumber) {
         const u = await client.query('SELECT id FROM vecilomas.units WHERE condominium_id = $1 AND unit_number = $2', [data.condominiumId || 1, data.unitNumber])
         if (u.rows[0]) unitId = u.rows[0].id
       }
 
+      let passwordHash = '$2b$10$piiUvSixamfnpdrWUB9qVeRBicvdo3IpjVqIZA2E6H6zfSf3FMhdG'
+      if (data.password && data.password.trim()) {
+        passwordHash = await bcrypt.hash(data.password.trim(), 10)
+      }
+
       const userRes = await client.query(`
         INSERT INTO vecilomas.users (condominium_id, unit_id, email, password_hash, full_name, role, status)
-        VALUES ($1, $2, $3, '$2b$10$piiUvSixamfnpdrWUB9qVeRBicvdo3IpjVqIZA2E6H6zfSf3FMhdG', $4, $5, 'activo')
+        VALUES ($1, $2, $3, $4, $5, $6, 'activo')
         ON CONFLICT (email) DO UPDATE
-        SET role = EXCLUDED.role, full_name = EXCLUDED.full_name, unit_id = EXCLUDED.unit_id
+        SET role = EXCLUDED.role,
+            full_name = EXCLUDED.full_name,
+            unit_id = EXCLUDED.unit_id,
+            password_hash = CASE WHEN EXCLUDED.password_hash != '$2b$10$piiUvSixamfnpdrWUB9qVeRBicvdo3IpjVqIZA2E6H6zfSf3FMhdG' THEN EXCLUDED.password_hash ELSE vecilomas.users.password_hash END
         RETURNING id, full_name, email, role, status;
-      `, [data.condominiumId || 1, unitId, data.email, data.fullName, data.role])
+      `, [data.condominiumId || 1, unitId, data.email, passwordHash, data.fullName, data.role])
+
 
       const userId = userRes.rows[0].id
 

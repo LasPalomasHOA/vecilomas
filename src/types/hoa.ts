@@ -10,6 +10,7 @@ export interface Resident {
   phone: string
   email: string
   vehicles: string[]
+  password?: string
 }
 
 export type NoticeType = 'Mantenimiento' | 'Asamblea' | 'Servicio' | 'Comunicado' | 'Seguridad'
@@ -54,5 +55,7 @@ export interface UserRolePermission {
   unit?: string
   status: 'Activo' | 'Inactivo'
   permissions: string[]
+  password?: string
 }
+
 
